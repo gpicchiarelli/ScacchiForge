@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        sbcl-version: [latest]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install SBCL (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y sbcl
+
+    - name: Install SBCL (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install sbcl
+
+    - name: Verify SBCL installation
+      run: sbcl --version
+
+    - name: Run tests
+      run: |
+        sbcl --non-interactive \
+          --eval "(asdf:load-system :scacchiforge)" \
+          --eval "(asdf:test-system :scacchiforge)" \
+          --eval "(uiop:quit 0)" || exit 1
+
+    - name: Check compilation warnings
+      run: |
+        sbcl --non-interactive \
+          --eval "(declaim (optimize (compilation-speed 0) (speed 3) (safety 3)))" \
+          --eval "(asdf:load-system :scacchiforge :force t)" \
+          --eval "(uiop:quit 0)"
