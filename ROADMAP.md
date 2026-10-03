@@ -2,9 +2,9 @@
 
 Detailed timeline for ScacchiForge development phases.
 
-## ✅ Phase 0: Foundation (COMPLETE)
+## Phase 0: Foundation (REOPENED)
 
-**Status**: Complete and committed
+**Status**: Skeleton only. The code does not load and has never been run. The durations in this file are placeholders, not estimates.
 
 - [x] Repository and build system (ASDF)
 - [x] Reference implementation skeleton
@@ -21,7 +21,7 @@ Detailed timeline for ScacchiForge development phases.
 - Position make/unmake tests
 - 22 files, 1793 LOC
 
-**Code Quality**: All code compiles. Tests ready to run once FiveAM is available.
+**Code Quality**: Unverified. The system fails to load (a structure named `position` violates the COMMON-LISP package lock).
 
 ---
 

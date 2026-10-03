@@ -41,9 +41,11 @@ scacchiforge/
 
 ## Phases
 
-### Phase 0: Foundation ✓
-- Repository, build system, structure, tests, benchmarks
-- Reference implementation model
+### Phase 0: Foundation (reopened)
+- Repository layout, ASDF skeleton, test and benchmark skeletons exist.
+- **The code has never been compiled or run, and it does not currently load.**
+  Earlier claims of "compiles without warnings" or "verified" were wrong and have been removed.
+- The reference model must be rewritten and pass Perft before any other claim is made.
 
 ### Phase 1: Core (In Progress)
 - Bitboards, Position, Move, legal move generation
