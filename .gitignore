@@ -1,0 +1,41 @@
+# SBCL/Lisp
+*.fasl
+*.ufasl
+*.o
+*.so
+*.a
+*.dylib
+.sbcl/
+*.mem
+
+# Build artifacts
+dist/
+build/
+*.x86f
+
+# Test outputs
+test-results/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*.swp
+.~*
+
+# ASDF
+.ASDF_CACHE/
+
+# Bench outputs
+benchmarks/results/
+benchmarks/*.json
