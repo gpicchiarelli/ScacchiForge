@@ -159,10 +159,12 @@ Oggi il test differenziale ha quattro parti.
   [`tests/test-optimized-search.lisp`](../tests/test-optimized-search.lisp), suite
   `differential`). La scomposizione della valutazione per termine e colore e il punteggio, sulle
   posizioni delle tabelle di perft, dei casi speciali e del fuzzer; lo stato incrementale della
-  valutazione dopo ogni make e ogni unmake; il valore della ricerca a profondità fissa e il numero
-  di nodi di negamax; le varianti principali dei due livelli, rigiocate dal riferimento; i valori
-  e le varianti della firma di ricerca, giudicati dal riferimento. Il dettaglio è in
-  [Valutazione e ricerca del livello ottimizzato](#valutazione-e-ricerca-del-livello-ottimizzato).
+  valutazione dopo ogni make e ogni unmake; il valore della ricerca a profondità fissa (delle
+  baseline e della ricerca di default della Fase 3) e il numero di nodi di negamax; le varianti
+  principali dei due livelli, rigiocate dal riferimento; i valori e le varianti della firma di
+  ricerca, giudicati dal riferimento. Il dettaglio è in
+  [Valutazione e ricerca del livello ottimizzato](#valutazione-e-ricerca-del-livello-ottimizzato)
+  e in [Ricerca della Fase 3](#ricerca-della-fase-3).
 
 Accanto, sul solo livello ottimizzato ([`tests/test-optimized.lisp`](../tests/test-optimized.lisp),
 suite `optimized`):
@@ -317,8 +319,9 @@ giudicano tre suite di `make test`, e `make differential-deep` con il profilo pr
   principali del livello con `principal-variation-problems` (sopra), sulla posizione di
   riferimento letta dalla FEN e con la propria valutazione classica: in `make test`, tutte
   quelle di alpha-beta da 0 a 4 e di negamax da 0 a 3 in ordine di generazione sulle posizioni
-  di ricerca, e di alpha-beta a profondità 4 sulle dodici posizioni della firma
-  (`principal-variation-leads-to-the-score`), e tutte quelle delle ricerche permutate:
+  di ricerca, e di alpha-beta e della ricerca di default della Fase 3 a profondità 4 sulle
+  dodici posizioni della firma (`principal-variation-leads-to-the-score`), e tutte quelle delle
+  ricerche permutate:
   alpha-beta da 1 a 4 con i tre semi, negamax da 1 a 3 con il primo
   (`alpha-beta-value-does-not-depend-on-the-move-order`), e quelle della ricerca diretta e
   dell'ultima iterazione sulle quattro posizioni con un matto forzato, fino a profondità 5
@@ -340,12 +343,13 @@ giudicano tre suite di `make test`, e `make differential-deep` con il profilo pr
   ricalcolo dopo il make e con lo stato di prima dopo l'unmake (INV-C8, INV-C2). Le posizioni
   della suite del fuzzer e quelle del test differenziale delle mosse non si valutano; nel
   secondo lo stato incrementale lo ricalcola il controllo di coerenza, dopo ogni mossa
-  ([Test differenziale](#test-differenziale)). Il valore di alpha-beta e di negamax del livello
-  ottimizzato deve essere quello di alpha-beta del riferimento: sulle posizioni di ricerca alle
-  profondità da 1 a 3 (fino a 4 con `make differential-deep`) e su posizioni casuali con seme
-  dichiarato a profondità 2 (3); nello stesso test (`search-values-equal-the-reference`) il
-  riferimento rigioca le varianti principali delle tre ricerche, la propria e le due del
-  livello ottimizzato. Il test `random-position-variations-are-checked-by-the-reference`
+  ([Test differenziale](#test-differenziale)). Il valore di alpha-beta, di negamax e della
+  ricerca di default della Fase 3 (con la TT in modalità di verifica,
+  [Ricerca della Fase 3](#ricerca-della-fase-3)) del livello ottimizzato deve essere quello di
+  alpha-beta del riferimento: sulle posizioni di ricerca alle profondità da 1 a 3 (fino a 4 con
+  `make differential-deep`) e su posizioni casuali con seme dichiarato a profondità 2 (3); nello
+  stesso test (`search-values-equal-the-reference`) il riferimento rigioca le varianti
+  principali delle quattro ricerche, la propria e le tre del livello ottimizzato. Il test `random-position-variations-are-checked-by-the-reference`
   rigioca le varianti di alpha-beta del livello ottimizzato, in ordine di generazione, su altre
   posizioni casuali con seme dichiarato, a una profondità a cui la suite non esegue la ricerca
   del riferimento: 40 posizioni a profondità 3 in `make test`, 200 a profondità 5 in
@@ -358,6 +362,64 @@ giudicano tre suite di `make test`, e `make differential-deep` con il profilo pr
   alpha-beta pota, decide l'ordine. `make test` confronta migliaia di posizioni per la
   valutazione; quante, con quali semi e a quali profondità, lo dicono i file e lo stampano i
   test.
+
+## Ricerca della Fase 3
+
+La transposition table, l'ordinamento delle mosse, PVS e NegaScout e i tipi di nodo del livello
+ottimizzato ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md),
+[ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md),
+[ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md), in stato Proposta) li giudicano
+due suite di `make test`. Il valore della ricerca senza TT è quello di alpha-beta del livello
+ottimizzato (la baseline della Fase 2), che la suite `differential` confronta con il
+riferimento; le varianti principali le rigioca il riferimento (`principal-variation-problems`,
+[sopra](#valutazione-e-ricerca-del-riferimento)).
+
+- **Transposition table** ([`tests/test-optimized-tt.lisp`](../tests/test-optimized-tt.lisp),
+  suite `optimized-tt`). La parola di dati impacchetta e restituisce ogni campo; il costruttore
+  rifiuta una dimensione che non è una potenza di due, una politica e una modalità sconosciute;
+  ognuna delle tre politiche segue la sua regola, su una tabella di due slot e una maschera di
+  chiave nulla. Dopo un iterative deepening con la TT in modalità di verifica, ogni entry di ogni
+  posizione entro due ply dalla radice è un bound vero del valore della sua posizione alla sua
+  profondità, punteggi di matto compresi, giudicato da alpha-beta cercato da quella posizione.
+  La modalità di verifica contro la ricerca senza TT: alpha-beta, PVS e NegaScout, con e senza
+  ordinamento, sulle posizioni di ricerca alle profondità da 1 a 4 e su 30 posizioni casuali con
+  seme a profondità 3, e PVS ordinata sulle posizioni della firma alla sua profondità, con nessuna
+  mossa TT scartata; tabelle di 2, 16, 256 e 4096 slot con ciascuna politica, dove le entry si
+  sostituiscono o si rifiutano di continuo; una maschera di chiave di 8 e di 4 bit, che forza
+  falsi riscontri, scartati e contati, senza che una mossa di un'altra posizione sia letta. In
+  modalità normale con la stessa maschera la ricerca legge mosse di altre posizioni: si scartano,
+  la ricerca finisce senza errori, lascia la posizione com'era e la sua variante è legale; il
+  valore può cambiare, e il test conta quante volte. Entry alterate a mano (una mossa illegale in
+  ogni posizione entro un ply) si scartano e il valore resta quello senza TT. Una posizione
+  raggiunta per due percorsi, con orologi e storia diversi, ha una chiave e un valore: l'opzione
+  di [QA-02](limiti-e-rischi.md#qa-02).
+- **Ordinamento, PVS, NegaScout, tipi di nodo**
+  ([`tests/test-optimized-pvs.lisp`](../tests/test-optimized-pvs.lisp), suite `optimized-pvs`).
+  Il nodo della Fase 3 in modalità alpha-beta, senza ordinamento né TT, restituisce ciò che la
+  baseline restituisce: valore, mossa migliore, numero di nodi e variante, anche con le mosse
+  permutate dallo stesso seme. PVS e NegaScout, con e senza ordinamento, e alpha-beta ordinato,
+  ciascuno senza TT e con una TT di 4096 slot in modalità di verifica (PVS e NegaScout anche con
+  la TT e senza ordinamento), restituiscono il valore della baseline sulle posizioni di ricerca
+  alle profondità da 0 a 4, su 40 posizioni casuali con seme a profondità 3, e con le mosse
+  permutate da ciascuno dei semi di `*move-order-seeds*` alle profondità da 1 a 3
+  ([Proprietà di alpha-beta puro](#proprietà-di-alpha-beta-puro)); il riferimento rigioca ogni
+  variante. PVS e NegaScout
+  sono due ricerche diverse (ri-ricerche e nodi). L'ordine delle mosse è quello che la regola dà,
+  calcolato di nuovo dal test con la scacchiera del riferimento, su posizioni di ricerca, della
+  firma e casuali; la mossa TT è prima e la mossa PV seconda quando sono legali, e una mossa TT
+  illegale non prende posto; nell'iterative deepening ordinato la mossa PV è cercata per prima a
+  ogni nodo della variante precedente, tante volte quante mosse ha; con la TT in modalità di
+  verifica la mossa TT è cercata per prima e nessuna è scartata. I tipi di nodo: i conteggi dei
+  nove accoppiamenti sommano ai nodi, la radice è PV osservata PV, PVS e NegaScout non osservano
+  mai PV un nodo atteso Cut o All, i contatori dei tagli sono ordinati. Con un ordinamento
+  perfetto (un aggancio dei test ordina le mosse di ogni nodo per il loro valore di negamax)
+  alpha-beta, PVS e NegaScout visitano esattamente l'albero minimo di Knuth e Moore, che il test
+  conta a parte, ogni nodo ha il tipo atteso e non c'è nessuna ri-ricerca, su undici
+  posizioni a profondità da 2 a 4. L'iterative deepening ordinato con la TT in modalità di
+  verifica dà a ogni profondità il valore della baseline. Gli argomenti sbagliati si rifiutano.
+  L'allocazione: ricerche di PVS e NegaScout ordinate con una TT in ciascuna modalità, con un
+  contesto e una tabella preallocati, che visitano più di un milione di nodi dopo un
+  riscaldamento, devono allocare al più 1 MiB (INV-A5).
 
 ## Regressione di ricerca
 
@@ -393,7 +455,7 @@ migliore, numero di nodi e variante principale.
   proprio alpha-beta alla profondità del file, e il valore deve essere quello registrato e
   quello di alpha-beta del livello ottimizzato, cercato di nuovo; la variante principale del
   riferimento passa lo stesso controllo. In `make test` il riferimento non esegue quella
-  ricerca: sulle dodici posizioni il suo alpha-beta a profondità 4 visita 899060 nodi, con la
+  ricerca: sulle dodici posizioni il suo alpha-beta a profondità 4 visita 897329 nodi, con la
   valutazione classica calcolata termine per termine a ogni foglia, e `make test` limita in nodi
   il lavoro delle ricerche del riferimento. Otto delle dodici posizioni sono anche posizioni di
   ricerca, i cui valori `make test` confronta con quelli del riferimento fino a profondità 3 e
@@ -404,8 +466,20 @@ migliore, numero di nodi e variante principale.
   lunga gittata, il Lisp, il sistema e la data dell'esecuzione che l'ha scritto. La firma non
   dipende dall'implementazione degli attacchi né dalla policy: le tre implementazioni danno le
   stesse mosse nello stesso ordine, e la build controllata calcola le stesse cose.
+
+> **Proposta ([ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md))** — La firma della Fase 3.
+
+- **Due ricerche.** Dal formato 2 il file registra, accanto alla parte di alpha-beta descritta
+  sopra (`:entries`, invariata), la ricerca di default della Fase 3 (`:default-search`,
+  `:default-entries`): iterative deepening di PVS con l'ordinamento della Fase 3 e una TT nuova
+  di 65536 slot a due slot per bucket, in modalità di verifica, alla stessa profondità e sulle
+  stesse posizioni; il numero di nodi è la somma delle iterazioni. La modalità normale non è
+  nella firma: il suo valore a profondità fissa non è garantito.
+- **Il valore.** Il test della firma controlla che le due ricerche registrino gli stessi valori.
+  Il riferimento rigioca le varianti di entrambe in `make test`, e in `make differential-deep`
+  ne confronta i valori con il proprio alpha-beta e con le due ricerche cercate di nuovo.
 - **Il test.** `optimized-search/search-signature-is-reproduced`, in `make test`, ricalcola ogni
-  voce e la confronta con il file, componente per componente.
+  voce, delle due ricerche dal formato 2, e la confronta con il file, componente per componente.
 - **Come si aggiorna.** Il file lo scrive solo `make signatures`
   ([`tools/signatures.lisp`](../tools/signatures.lisp)), che nessun altro target esegue e che non
   si esegue per far passare il test. Una modifica dichiarata `[EXACT]` non cambia la firma: se il
@@ -422,8 +496,8 @@ migliore, numero di nodi e variante principale.
 | Modifica | Firma attesa |
 |---|---|
 | Ottimizzazione `EXACT` della stessa ricerca | identica |
-| Cambio dell'ordinamento, senza TT né potature | valore uguale, nodi diversi |
-| Cambio della TT (dimensione, sostituzione) | valore uguale solo in modalità di verifica; nodi diversi |
+| Cambio dell'ordinamento, senza TT né potature | valore uguale, nodi diversi (la parte della ricerca di default) |
+| Cambio della TT (dimensione, sostituzione) | valore uguale solo in modalità di verifica; nodi diversi (la parte della ricerca di default) |
 | Nuova potatura, riduzione o estensione (`HEURISTIC`) | può cambiare tutto: serve un [record di ricerca](../research/README.md) |
 
 ### Modalità di verifica della TT
@@ -443,6 +517,18 @@ In questa modalità la ricerca con TT deve restituire lo stesso valore della ric
 Le posizioni GHI della suite della TT sono un'eccezione dichiarata: provano l'opzione scelta per
 [QA-02](limiti-e-rischi.md#qa-02), non questa uguaglianza.
 
+Oggi la modalità è implementata nel livello ottimizzato
+([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md), Proposta): una tabella
+creata con `:mode :verification` usa per un taglio solo entry della profondità del nodo; la
+ricerca non rileva ripetizioni né la regola delle cinquanta mosse, e gli orologi sono fuori dalla
+chiave; ogni slot conserva, oltre alla chiave intera, le bitboard per tipo di pezzo, le
+occupazioni per colore, il lato al tratto, i diritti di arrocco e la casa en passant come la
+chiave la conta, e un falso riscontro si scarta e si conta; i punteggi di matto si scrivono
+relativi al nodo; nessuna potatura oltre ad alpha-beta. I test sono in
+[Ricerca della Fase 3](#ricerca-della-fase-3). La posizione GHI della suite di oggi è una
+posizione raggiunta per due percorsi, con una ripetizione nella storia: prova l'opzione di
+default proposta per QA-02 (nessuna storia nel valore).
+
 ### Proprietà di alpha-beta puro
 
 > **Proposta** — Senza TT né potature oltre ad alpha-beta, il valore a finestra piena non dipende
@@ -459,6 +545,10 @@ primo a profondità 3 sulle posizioni dall'albero grande), e negamax con il prim
 profondità 2. Nel livello ottimizzato i test con lo stesso nome sono nella suite
 `optimized-search` ([`tests/test-optimized-search.lisp`](../tests/test-optimized-search.lisp)),
 con gli stessi semi: alpha-beta con i tre fino a profondità 4, negamax con il primo fino a 3.
+PVS e NegaScout, con e senza l'ordinamento della Fase 3, e alpha-beta ordinato si permutano con
+i tre semi fino a profondità 3, nella suite `optimized-pvs`: l'ordinamento è stabile, quindi la
+permutazione cambia l'ordine fra mosse dello stesso posto, e il valore deve restare quello della
+baseline ([Ricerca della Fase 3](#ricerca-della-fase-3)).
 
 ## Suite per tecnica
 
@@ -471,7 +561,7 @@ pericoloso.
 |---|---|
 | Null move | posizioni di zugzwang con risultato noto: la ricerca con la tecnica non deve perdere la mossa corretta, o la perdita va registrata |
 | Quiescenza | posizioni con lunghe sequenze forzate di catture, per l'effetto orizzonte |
-| TT | posizioni la cui valutazione dipende dalle ripetizioni (GHI, [QA-02](limiti-e-rischi.md#qa-02)), che provano l'opzione scelta per QA-02; punteggi di matto che passano attraverso la TT |
+| TT | posizioni la cui valutazione dipende dalle ripetizioni (GHI, [QA-02](limiti-e-rischi.md#qa-02)), che provano l'opzione scelta per QA-02; punteggi di matto che passano attraverso la TT. Oggi: la suite `optimized-tt` ([Ricerca della Fase 3](#ricerca-della-fase-3)) |
 | LMR, potature, estensioni | suite tattiche: nodi per posizione risolta (una misura, in [misure](misure.md)) |
 | Ogni tecnica | spenta da configurazione, restituisce la firma della fase precedente (reversibilità, INV-X5) |
 
@@ -534,10 +624,10 @@ Il [Makefile](../Makefile) elenca i target con `make help`.
 | `make test-checked` | i test, con il hot path del livello ottimizzato compilato a `safety 3`; fuori da `make check` |
 | `make perft-deep` | i perft profondi dei due livelli, fuori da `make check` |
 | `make differential-deep` | il test differenziale su milioni di posizioni, fuori da `make check` |
-| `make bench` | il registro dell'ambiente e i benchmark (perft del riferimento e del livello ottimizzato con ciascuna implementazione degli attacchi dei pezzi a lunga gittata, nodi di ricerca per secondo del livello ottimizzato a profondità fissa, costo di una chiamata della valutazione nei due livelli, utilità sui bit, attacchi dei pezzi a lunga gittata), fuori da `make check` |
-| `make hot-path` | note di efficienza di SBCL, disassemblato delle funzioni di ogni nodo del perft e della ricerca, allocazione e tempi di perft per policy del hot path del livello ottimizzato, fuori da `make check` |
+| `make bench` | il registro dell'ambiente e i benchmark (perft del riferimento e del livello ottimizzato con ciascuna implementazione degli attacchi dei pezzi a lunga gittata, nodi di ricerca per secondo del livello ottimizzato a profondità fissa, costo di una chiamata della valutazione nei due livelli, ricerca e perft con le due varianti dello stato della valutazione, le ricerche della Fase 3 con e senza ordinamento e TT, di più dimensioni e politiche, con l'efficienza dell'ordinamento e la hit rate, il costo della lookup della TT, utilità sui bit, attacchi dei pezzi a lunga gittata), fuori da `make check` |
+| `make hot-path` | note di efficienza di SBCL, disassemblato delle funzioni di ogni nodo del perft e delle ricerche, dell'ordinamento e della TT, allocazione e tempi di perft per policy del hot path del livello ottimizzato, fuori da `make check` |
 | `make magics` | ripete la ricerca dei numeri magici dal seme, senza costruire prima le tavole dai numeri nel file, e riscrive `src/optimized/magic-numbers.lisp` ([ADR-0016](adr/0016-attacchi-dei-pezzi-a-lunga-gittata.md)), fuori da `make check`; il test dei numeri, in `make test`, fallisce se il file non è il suo output |
-| `make signatures` | ricalcola la firma di ricerca e riscrive `tests/search-signature.sexp` con la sua intestazione di provenienza ([Regressione di ricerca](#regressione-di-ricerca)), fuori da `make check`; il test della firma, in `make test`, fallisce se il file non è ciò che la ricerca calcola |
+| `make signatures` | ricalcola la firma di ricerca, delle due ricerche, e riscrive `tests/search-signature.sexp` con la sua intestazione di provenienza ([Regressione di ricerca](#regressione-di-ricerca)), fuori da `make check`; il test della firma, in `make test`, fallisce se il file non è ciò che le ricerche calcolano |
 
 SBCL è l'unico requisito Lisp. I target usano make (è stato usato solo GNU make). Per parte del
 registro dell'ambiente `make bench` esegue anche git, ps, uname, sysctl e nproc, e legge

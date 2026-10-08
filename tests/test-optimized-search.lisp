@@ -9,7 +9,10 @@
 ;;;; declared seed; iterative deepening at depth d returns what the direct search at d returns.
 ;;;; Mate scores are relative to the ply. A search with a preallocated context allocates nothing
 ;;;; after a warm-up. The search signature recorded in tests/search-signature.sexp is recomputed
-;;;; and compared, value, best move, node count and principal variation.
+;;;; and compared, value, best move, node count and principal variation, for its two searches:
+;;;; the baseline alpha-beta of Phase 2 and the default search of Phase 3
+;;;; (SCF-OPT:*BITBOARD-DEFAULT-SEARCH*, with the table in verification mode), whose values must
+;;;; be equal.
 ;;;;
 ;;;; The reference checks principal variations of this layer (PRINCIPAL-VARIATION-PROBLEMS,
 ;;;; tests/test-search.lisp): each one is replayed through the reference position read from the
@@ -23,20 +26,23 @@
 ;;;; signature, alpha-beta at its depth, 4 (principal-variation-leads-to-the-score); the direct
 ;;;; search and the last iteration on four positions with a forced mate, to depth 5
 ;;;; (iterative-deepening-mate-stop-equals-the-full-depth-search); and those of the suite
-;;;; differential below.
+;;;; differential below; and those of the default search of Phase 3 on the positions of the
+;;;; signature, at its depth (principal-variation-leads-to-the-score).
 ;;;;
-;;;; Suite differential (INV-C1, "dove applicabile"): the value of alpha-beta and of negamax at
-;;;; fixed depth equals the value of the reference's alpha-beta, at depths 1 to 3 in MAKE TEST
-;;;; and to depth 4 in MAKE DIFFERENTIAL-DEEP, on the search positions, and at depth 2 (3) on
-;;;; seeded random positions; the principal variations of the three searches are checked by
-;;;; the reference (search-values-equal-the-reference). The principal variation of alpha-beta
+;;;; Suite differential (INV-C1, "dove applicabile"): the value of alpha-beta, of negamax and of
+;;;; the default search of Phase 3 (table in verification mode) at fixed depth equals the value
+;;;; of the reference's alpha-beta, at depths 1 to 3 in MAKE TEST and to depth 4 in MAKE
+;;;; DIFFERENTIAL-DEEP, on the search positions, and at depth 2 (3) on seeded random positions;
+;;;; the principal variations of the four searches are checked by the reference
+;;;; (search-values-equal-the-reference). The principal variation of alpha-beta
 ;;;; of this layer at depth 3 (5) on other seeded random positions is checked by the reference
 ;;;; (random-position-variations-are-checked-by-the-reference). The values and the principal
-;;;; variations recorded in the search signature are judged by the reference
-;;;; (search-signature-is-judged-by-the-reference): in MAKE TEST each recorded variation is
-;;;; replayed by the reference; in MAKE DIFFERENTIAL-DEEP the reference's alpha-beta also
-;;;; searches each signature position at the signature depth, and its value must be the
-;;;; recorded value and the value of this layer's alpha-beta. The best move, the principal
+;;;; variations recorded in the search signature, of both its searches, are judged by the
+;;;; reference (search-signature-is-judged-by-the-reference): in MAKE TEST each recorded
+;;;; variation is replayed by the reference; in MAKE DIFFERENTIAL-DEEP the reference's
+;;;; alpha-beta also searches each signature position at the signature depth, and its value must
+;;;; be the two recorded values, the value of this layer's alpha-beta and that of its default
+;;;; search. The best move, the principal
 ;;;; variation and the node count of alpha-beta are not compared with the reference's: this
 ;;;; layer's generator writes the moves in another order, and among moves of equal value, and in
 ;;;; how much alpha-beta prunes, the order decides. The node count of negamax does not depend on
@@ -326,15 +332,18 @@ and negamax one ply less, each twice. The test prints how many nodes they visit.
           (is (> nodes 1000000) "enough nodes for the bound to mean something: ~D" nodes)
           (is (<= consed (* 1024 1024)) "~D bytes consed over ~D nodes" consed nodes))))))
 
-;;; --- the first search signature ---------------------------------------------------------
+;;; --- the search signature --------------------------------------------------------------
 ;;;
 ;;; The signature (docs/verifica.md, "Regressione di ricerca") of the optimized engine: for each
 ;;; position of *SEARCH-SIGNATURE-POSITIONS*, the value, the best move, the node count and the
-;;; principal variation of alpha-beta at depth *SEARCH-SIGNATURE-DEPTH*, one thread. It is
-;;; recorded in tests/search-signature.sexp, which "make signatures" (tools/signatures.lisp)
-;;; writes and nothing else does; the test below recomputes it and compares. The file's header
-;;; records the revision the working tree was based on, the policy, the slider implementation,
-;;; the Lisp and the date of the run that wrote it.
+;;; principal variation at depth *SEARCH-SIGNATURE-DEPTH*, one thread, of two searches: the
+;;; baseline alpha-beta of Phase 2 (:ENTRIES, unchanged since Phase 2) and the default search of
+;;; Phase 3 (:DEFAULT-ENTRIES; SCF-OPT:*BITBOARD-DEFAULT-SEARCH*, iterative deepening of PVS
+;;; with the ordering and a fresh table, here in verification mode; its node count is the sum
+;;; over the iterations). It is recorded in tests/search-signature.sexp, which "make
+;;; signatures" (tools/signatures.lisp) writes and nothing else does; the test below recomputes
+;;; it and compares. The file's header records the revision the working tree was based on, the
+;;; policy, the slider implementation, the Lisp and the date of the run that wrote it.
 
 (defparameter *search-signature-depth* 4
   "The depth of the search signature, chosen so that recomputing every entry keeps MAKE TEST
@@ -386,71 +395,118 @@ is none. Alpha-beta of the optimized layer, with a fresh search context."
   (loop for (name fen) in *search-signature-positions*
         collect (search-signature-entry name fen depth)))
 
+(defun search-signature-default ()
+  "The configuration of the default search the signature records: SCF-OPT:*BITBOARD-DEFAULT-
+SEARCH* with the table in verification mode."
+  (append scf-opt:*bitboard-default-search* (list :tt-mode :verification)))
+
+(defun search-signature-default-entry (name fen depth)
+  "The entry of the default search of Phase 3 (SCF-OPT:BITBOARD-DEFAULT-SEARCH, a fresh table in
+verification mode) for the position FEN, called NAME, at DEPTH, in the form of
+SEARCH-SIGNATURE-ENTRY; the node count is the sum over the iterations."
+  (multiple-value-bind (score move nodes line)
+      (scf-opt:bitboard-default-search (optimized-position fen) depth :mode :verification)
+    (list name fen :score score :best-move (if (= move +no-move+) nil (move-to-string move))
+                   :nodes nodes :pv (mapcar #'move-to-string line))))
+
+(defun search-signature-default-entries (&optional (depth *search-signature-depth*))
+  "The entries of the default search of every position of *SEARCH-SIGNATURE-POSITIONS* at DEPTH."
+  (loop for (name fen) in *search-signature-positions*
+        collect (search-signature-default-entry name fen depth)))
+
 (defun read-search-signature (&optional (pathname (search-signature-pathname)))
-  "The property list of the signature file PATHNAME (:FORMAT :ALGORITHM :DEPTH :ENTRIES), read
-as data, with no evaluation at read time: keywords, integers, strings and NIL."
+  "The property list of the signature file PATHNAME (:FORMAT :ALGORITHM :DEPTH :ENTRIES
+:DEFAULT-SEARCH :DEFAULT-ENTRIES), read as data, with no evaluation at read time: keywords,
+integers, strings, T and NIL."
   (with-open-file (in pathname :external-format :utf-8)
     (let ((*read-eval* nil)
           (*package* (find-package '#:scacchiforge.test)))
       (read in))))
 
-(defun write-search-signature (stream header-lines entries depth)
-  "Write ENTRIES (as SEARCH-SIGNATURE-ENTRIES returns them), the search signature at DEPTH, to
-STREAM, after a comment header made of HEADER-LINES (strings). Every line stays within 100
-columns."
+(defun write-signature-entries (stream entries)
+  "Write ENTRIES (as SEARCH-SIGNATURE-ENTRIES returns them) to STREAM as the body of a list."
+  (loop for entry in entries
+        for first = t then nil
+        do (destructuring-bind (name fen &key score best-move nodes pv) entry
+             (unless first
+               (format stream "~%  "))
+             (format stream "(~S~%   ~S~%   :score ~D :best-move ~S :nodes ~D~%   :pv ~S)"
+                     name fen score best-move nodes pv))))
+
+(defun write-search-signature (stream header-lines entries default-entries depth)
+  "Write the search signature at DEPTH to STREAM, after a comment header made of HEADER-LINES
+(strings): ENTRIES, of the baseline alpha-beta, and DEFAULT-ENTRIES, of the default search
+(SEARCH-SIGNATURE-DEFAULT), both as SEARCH-SIGNATURE-ENTRIES returns them. Every line stays
+within 100 columns."
   (let ((*print-pretty* nil)
         (*print-case* :downcase))
-    (format stream ";;;; search-signature.sexp -- the first search signature of the optimized ~
-                    engine (Phase 2).~%;;;;~%")
+    (format stream ";;;; search-signature.sexp -- the search signature of the optimized engine ~
+                    (Phases 2 and 3).~%;;;;~%")
     (dolist (line header-lines)
       (format stream ";;;;~:[ ~A~;~]~%" (string= line "") line))
-    (format stream "~%(:format 1~% :algorithm :alpha-beta~% :depth ~D~% :entries~% (" depth)
-    (loop for entry in entries
-          for first = t then nil
-          do (destructuring-bind (name fen &key score best-move nodes pv) entry
-               (unless first
-                 (format stream "~%  "))
-               (format stream "(~S~%   ~S~%   :score ~D :best-move ~S :nodes ~D~%   :pv ~S)"
-                       name fen score best-move nodes pv)))
+    (format stream "~%(:format 2~% :algorithm :alpha-beta~% :depth ~D~% :entries~% (" depth)
+    (write-signature-entries stream entries)
+    (format stream ")~% :default-search~% (~{~S ~S~^~%  ~})~% :default-entries~% ("
+            (search-signature-default))
+    (write-signature-entries stream default-entries)
     (format stream "))~%")))
 
 (defun write-search-signature-file (header-lines &optional (pathname (search-signature-pathname)))
   "Compute the search signature at *SEARCH-SIGNATURE-DEPTH* and write it to PATHNAME
 (tests/search-signature.sexp), with HEADER-LINES as the provenance header. Called by
 tools/signatures.lisp (make signatures) only. Returns two values: PATHNAME, and the property
-list of what was written (:FORMAT :ALGORITHM :DEPTH :ENTRIES, as READ-SEARCH-SIGNATURE gives
-it), which the tool compares with the file read back."
+list of what was written (:FORMAT :ALGORITHM :DEPTH :ENTRIES :DEFAULT-SEARCH :DEFAULT-ENTRIES,
+as READ-SEARCH-SIGNATURE gives it), which the tool compares with the file read back."
   (let* ((depth *search-signature-depth*)
-         (entries (search-signature-entries depth)))
+         (entries (search-signature-entries depth))
+         (default-entries (search-signature-default-entries depth)))
     (with-open-file (out pathname :direction :output :if-exists :supersede
                                   :external-format :utf-8)
-      (write-search-signature out header-lines entries depth))
-    (values pathname (list :format 1 :algorithm :alpha-beta :depth depth :entries entries))))
+      (write-search-signature out header-lines entries default-entries depth))
+    (values pathname (list :format 2 :algorithm :alpha-beta :depth depth :entries entries
+                           :default-search (search-signature-default)
+                           :default-entries default-entries))))
+
+(defun check-signature-entries (label entries compute depth)
+  "Compare each of ENTRIES, read from the signature file, with what COMPUTE, a function of
+(name fen depth) giving an entry, gives now at DEPTH: FEN, value, best move, node count and
+principal variation. LABEL names the search in the failure messages."
+  (is-equal (mapcar #'first *search-signature-positions*) (mapcar #'first entries)
+            "~A: the positions of the file" label)
+  (dolist (entry entries)
+    (destructuring-bind (name fen &key score best-move nodes pv) entry
+      (is-equal (second (assoc name *search-signature-positions* :test #'string=)) fen
+                "~A ~A: the FEN" label name)
+      (destructuring-bind (&key ((:score new-score)) ((:best-move new-move))
+                             ((:nodes new-nodes)) ((:pv new-pv)))
+          (cddr (funcall compute name fen depth))
+        (is-eql score new-score "~A ~A: value" label name)
+        (is-equal best-move new-move "~A ~A: best move" label name)
+        (is-eql nodes new-nodes "~A ~A: node count" label name)
+        (is-equal pv new-pv "~A ~A: principal variation" label name)))))
 
 (deftest :optimized-search search-signature-is-reproduced
   ;; docs/verifica.md, "Regressione di ricerca": a change that claims [EXACT] must not change any
   ;; of the four parts; a change that is meant to change them regenerates the file with "make
-  ;; signatures" and says why.
+  ;; signatures" and says why. The two searches the file records return the same value at its
+  ;; depth: the default search of Phase 3, with the table in verification mode, returns the
+  ;; value of alpha-beta.
   (let* ((signature (read-search-signature))
          (depth (getf signature :depth))
-         (entries (getf signature :entries)))
-    (is-eql 1 (getf signature :format))
+         (entries (getf signature :entries))
+         (default-entries (getf signature :default-entries)))
+    (is-eql 2 (getf signature :format))
     (is-eql :alpha-beta (getf signature :algorithm))
     (is-eql *search-signature-depth* depth "the depth of the file")
-    (is-equal (mapcar #'first *search-signature-positions*) (mapcar #'first entries)
-              "the positions of the file")
-    (dolist (entry entries)
-      (destructuring-bind (name fen &key score best-move nodes pv) entry
-        (is-equal (second (assoc name *search-signature-positions* :test #'string=)) fen
-                  "~A: the FEN" name)
-        (destructuring-bind (&key ((:score new-score)) ((:best-move new-move))
-                               ((:nodes new-nodes)) ((:pv new-pv)))
-            (cddr (search-signature-entry name fen depth))
-          (is-eql score new-score "~A: value" name)
-          (is-equal best-move new-move "~A: best move" name)
-          (is-eql nodes new-nodes "~A: node count" name)
-          (is-equal pv new-pv "~A: principal variation" name))))
-    (note "~D positions, alpha-beta at depth ~D" (length entries) depth)))
+    (is-equal (search-signature-default) (getf signature :default-search)
+              "the configuration of the default search")
+    (check-signature-entries "alpha-beta" entries #'search-signature-entry depth)
+    (check-signature-entries "default" default-entries #'search-signature-default-entry depth)
+    (is-equal (mapcar (lambda (entry) (getf (cddr entry) :score)) entries)
+              (mapcar (lambda (entry) (getf (cddr entry) :score)) default-entries)
+              "the default search records the values of alpha-beta")
+    (note "~D positions at depth ~D: alpha-beta, and the default search of Phase 3"
+          (length entries) depth)))
 
 (deftest :optimized-search principal-variation-leads-to-the-score
   ;; The reference checks the variations of this layer's searches in generation order: on the
@@ -481,7 +537,23 @@ it), which the tool compares with the file read back."
                         (when (<= depth 3)
                           (check name fen depth :negamax))))
       (loop for (name fen) in *search-signature-positions*
-            do (check name fen *search-signature-depth* :alpha-beta)))
+            do (check name fen *search-signature-depth* :alpha-beta))
+      ;; The default search of Phase 3, as the signature records it.
+      (loop for (name fen) in *search-signature-positions*
+            do (multiple-value-bind (score move nodes line)
+                   (scf-opt:bitboard-default-search (optimized-position fen)
+                                                    *search-signature-depth*
+                                                    :mode :verification)
+                 (declare (ignore nodes))
+                 (incf checked)
+                 (when (scf-opt:bitboard-mate-score-p score)
+                   (incf mates))
+                 (is-eql (if line (first line) +no-move+) move
+                         "~A default search: the line starts with the move" name)
+                 (is-equal '() (principal-variation-problems (fen-position fen)
+                                                             *search-signature-depth* score line
+                                                             #'scf-ref:evaluate-classical)
+                           "~A default search" name))))
     (note "~D variations checked, ~D of them with a mate score" checked mates)))
 
 ;;; --- the comparison with the reference (suite differential) -----------------------------
@@ -492,11 +564,11 @@ it), which the tool compares with the file read back."
 
 (defun search-comparison-problems (pos depth)
   "Compare the values of the reference's alpha-beta on the reference position POS at DEPTH with
-the optimized layer's alpha-beta and negamax on the converted position, and check the principal
-variation of each of the three searches through POS (PRINCIPAL-VARIATION-PROBLEMS,
-tests/test-search.lisp, with the reference's classical evaluation); return a list of strings
-describing each difference and each problem (empty when the values agree and the three
-variations lead to them)."
+the optimized layer's alpha-beta, negamax and default search of Phase 3 (the table in
+verification mode) on the converted position, and check the principal variation of each of the
+four searches through POS (PRINCIPAL-VARIATION-PROBLEMS, tests/test-search.lisp, with the
+reference's classical evaluation); return a list of strings describing each difference and each
+problem (empty when the values agree and the four variations lead to them)."
   (multiple-value-bind (reference reference-move reference-nodes reference-line)
       (scf-ref:alpha-beta-search pos depth)
     (declare (ignore reference-move reference-nodes))
@@ -508,25 +580,35 @@ variations lead to them)."
         (multiple-value-bind (negamax negamax-move negamax-nodes negamax-line)
             (scf-opt:bitboard-negamax-search bbp depth)
           (declare (ignore negamax-move negamax-nodes))
-          (append (unless (= reference alpha-beta)
-                    (list (format nil "alpha-beta ~D, reference ~D" alpha-beta reference)))
-                  (unless (= reference negamax)
-                    (list (format nil "negamax ~D, reference ~D" negamax reference)))
-                  (labelled-problems "reference variation"
-                                     (principal-variation-problems pos depth reference
-                                                                   reference-line evaluator))
-                  (labelled-problems "alpha-beta variation"
-                                     (principal-variation-problems pos depth alpha-beta
-                                                                   alpha-beta-line evaluator))
-                  (labelled-problems "negamax variation"
-                                     (principal-variation-problems pos depth negamax
-                                                                   negamax-line evaluator))))))))
+          (multiple-value-bind (default default-move default-nodes default-line)
+              (scf-opt:bitboard-default-search bbp depth :mode :verification)
+            (declare (ignore default-move default-nodes))
+            (append (unless (= reference alpha-beta)
+                      (list (format nil "alpha-beta ~D, reference ~D" alpha-beta reference)))
+                    (unless (= reference negamax)
+                      (list (format nil "negamax ~D, reference ~D" negamax reference)))
+                    (unless (= reference default)
+                      (list (format nil "default search ~D, reference ~D" default reference)))
+                    (labelled-problems "reference variation"
+                                       (principal-variation-problems pos depth reference
+                                                                     reference-line evaluator))
+                    (labelled-problems "alpha-beta variation"
+                                       (principal-variation-problems pos depth alpha-beta
+                                                                     alpha-beta-line evaluator))
+                    (labelled-problems "negamax variation"
+                                       (principal-variation-problems pos depth negamax
+                                                                     negamax-line evaluator))
+                    (labelled-problems "default search variation"
+                                       (principal-variation-problems pos depth default
+                                                                     default-line
+                                                                     evaluator)))))))))
 
 (deftest :differential search-values-equal-the-reference
-  ;; The gate of Phase 2: at fixed depth the optimized layer's search returns the reference's
-  ;; value. The best move and the node count of alpha-beta depend on the move order, which
-  ;; differs between the layers, and are not compared (file header). The principal variation
-  ;; of each of the three searches is replayed by the reference (SEARCH-COMPARISON-PROBLEMS).
+  ;; The gates of Phases 2 and 3: at fixed depth the optimized layer's searches return the
+  ;; reference's value, the default search of Phase 3 with its table in verification mode too.
+  ;; The best move and the node count of alpha-beta depend on the move order, which differs
+  ;; between the layers, and are not compared (file header). The principal variation of each of
+  ;; the four searches is replayed by the reference (SEARCH-COMPARISON-PROBLEMS).
   (with-differential-test ()
     (let ((compared 0)
           (deepest (differential-scale 3 4)))
@@ -605,51 +687,67 @@ where it is played, or NIL. POS is left as it was."
 
 (deftest :differential search-signature-is-judged-by-the-reference
   ;; The search signature (tests/search-signature.sexp) is a regression value of the optimized
-  ;; layer; the reference judges it. Under both profiles, each recorded principal variation is
-  ;; read by the reference from the FEN of its entry and replayed (PRINCIPAL-VARIATION-PROBLEMS,
-  ;; tests/test-search.lisp): its moves are legal and it leads to the recorded score; the
-  ;; recorded best move is its first move. Under the deep profile (MAKE DIFFERENTIAL-DEEP) the
-  ;; reference's alpha-beta also searches every entry at the depth of the file: its value must
-  ;; be the recorded value and the value of the optimized layer's alpha-beta, searched again
-  ;; here, and its own principal variation must lead to it. Not under MAKE TEST, to bound its
-  ;; work: on the twelve positions the reference's alpha-beta at depth 4 visits 899060 nodes,
-  ;; with the classical evaluation computed term by term at each leaf (the note prints the
-  ;; count); the bound is in nodes, not a measured time.
+  ;; layer; the reference judges it. Under both profiles, each recorded principal variation, of
+  ;; the baseline alpha-beta and of the default search of Phase 3, is read by the reference from
+  ;; the FEN of its entry and replayed (PRINCIPAL-VARIATION-PROBLEMS, tests/test-search.lisp):
+  ;; its moves are legal and it leads to the recorded score; the recorded best move is its first
+  ;; move. Under the deep profile (MAKE DIFFERENTIAL-DEEP) the reference's alpha-beta also
+  ;; searches every entry at the depth of the file: its value must be the two recorded values,
+  ;; the value of the optimized layer's alpha-beta and that of its default search, searched
+  ;; again here, and its own principal variation must lead to it. Not under MAKE TEST, to bound
+  ;; its work: on the twelve positions the reference's alpha-beta at depth 4 visits 897329
+  ;; nodes, with the classical evaluation computed term by term at each leaf (the note prints
+  ;; the count); the bound is in nodes, not a measured time.
   (with-differential-test ()
     (let* ((signature (read-search-signature))
            (depth (getf signature :depth))
            (entries (getf signature :entries))
+           (default-entries (getf signature :default-entries))
            (searched (eq *differential-profile* :deep))
            (reference-nodes 0))
-      (dolist (entry entries)
-        (destructuring-bind (name fen &key score best-move nodes pv) entry
-          (declare (ignore nodes))
-          (let ((pos (fen-position fen)))
-            (incf *assertions*)
-            (multiple-value-bind (line illegal) (reference-line-from-text pos pv)
-              (let ((problems (if illegal
-                                  (list (format nil "~A is not a legal move where it is played"
-                                                illegal))
-                                  (principal-variation-problems pos depth score line
-                                                                #'scf-ref:evaluate-classical))))
-                (when problems
-                  (differential-failure "~A: recorded variation: ~{~A~^; ~}" name problems))))
-            (is-equal (first pv) best-move "~A: the recorded best move starts the variation"
-                      name)
-            (when searched
-              (multiple-value-bind (reference move searched-nodes reference-line)
-                  (scf-ref:alpha-beta-search pos depth)
-                (declare (ignore move))
-                (incf reference-nodes searched-nodes)
-                (let ((optimized (scf-opt:bitboard-alpha-beta-search
-                                  (scf-opt:bitboard-from-reference pos) depth))
-                      (problems (principal-variation-problems pos depth reference reference-line
-                                                              #'scf-ref:evaluate-classical)))
-                  (incf *assertions*)
-                  (unless (and (= score reference) (= optimized reference) (null problems))
-                    (differential-failure "~A depth ~D: recorded ~D, optimized ~D, reference ~
-                                           ~D~@[; reference variation: ~{~A~^; ~}~]"
-                                          name depth score optimized reference problems))))))))
+      (loop for entry in entries
+            for default-entry in default-entries
+            do (destructuring-bind (name fen &key score &allow-other-keys) entry
+                 (let ((pos (fen-position fen))
+                       (default-score (getf (cddr default-entry) :score)))
+                   (dolist (recorded (list entry default-entry))
+                     (destructuring-bind (&key score best-move pv &allow-other-keys)
+                         (cddr recorded)
+                       (incf *assertions*)
+                       (multiple-value-bind (line illegal) (reference-line-from-text pos pv)
+                         (let ((problems
+                                 (if illegal
+                                     (list (format nil "~A is not a legal move where it is played"
+                                                   illegal))
+                                     (principal-variation-problems
+                                      pos depth score line #'scf-ref:evaluate-classical))))
+                           (when problems
+                             (differential-failure "~A: recorded variation~:[~; of the default ~
+                                                    search~]: ~{~A~^; ~}"
+                                                   name (eq recorded default-entry) problems))))
+                       (is-equal (first pv) best-move
+                                 "~A: the recorded best move starts the variation" name)))
+                   (when searched
+                     (multiple-value-bind (reference move searched-nodes reference-line)
+                         (scf-ref:alpha-beta-search pos depth)
+                       (declare (ignore move))
+                       (incf reference-nodes searched-nodes)
+                       (let* ((bbp (scf-opt:bitboard-from-reference pos))
+                              (optimized (scf-opt:bitboard-alpha-beta-search bbp depth))
+                              (default (scf-opt:bitboard-default-search bbp depth
+                                                                        :mode :verification))
+                              (problems (principal-variation-problems
+                                         pos depth reference reference-line
+                                         #'scf-ref:evaluate-classical)))
+                         (incf *assertions*)
+                         (unless (and (= score reference) (= default-score reference)
+                                      (= optimized reference) (= default reference)
+                                      (null problems))
+                           (differential-failure "~A depth ~D: recorded ~D and ~D, optimized ~D ~
+                                                  and ~D, reference ~D~@[; reference variation: ~
+                                                  ~{~A~^; ~}~]"
+                                                 name depth score default-score optimized default
+                                                 reference problems))))))))
       (if searched
           (note "~D entries at depth ~D: recorded variations replayed, and values compared with ~
                  the reference's alpha-beta (~D nodes)" (length entries) depth reference-nodes)

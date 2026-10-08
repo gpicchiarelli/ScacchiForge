@@ -2,39 +2,46 @@
 
 ## Fase corrente
 
-**Fase 2, per decisione dell'autore del 2026-10-04.** L'autore ha deciso di procedere alla
-[Fase 2](docs/roadmap.md#fase-2): negamax, alpha-beta, iterative deepening e valutazione
-classica, nell'engine ottimizzato. Il codice della Fase 2 esiste: la valutazione classica di
-[valutazione](docs/valutazione.md) nei due livelli, le ricerche baseline del livello ottimizzato
-e la prima firma di ricerca ([ADR-0018](docs/adr/0018-definizione-della-valutazione-classica.md)
-e [ADR-0019](docs/adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md), accettati
-dall'autore il 2026-10-07).
-Il commit cc6fceb ne è un punto di controllo; il commit b3190dc porta le modifiche fatte dopo.
+**Fase 3, per decisione dell'autore del 2026-10-08.** L'autore ha deciso di procedere alla
+[Fase 3](docs/roadmap.md#fase-3): Zobrist, transposition table, PVS/NegaScout e ordinamento delle
+mosse, nell'engine ottimizzato. Il codice della Fase 3 esiste: la transposition table con le
+modalità normale e di verifica
+([ADR-0021](docs/adr/0021-transposition-table-del-livello-ottimizzato.md)), PVS e NegaScout con i
+tipi di nodo PV, Cut e All attesi e osservati, la ricerca di default della Fase 3 e la seconda
+parte della firma di ricerca ([ADR-0022](docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md)),
+l'ordinamento delle mosse della Fase 3
+([ADR-0023](docs/adr/0023-ordinamento-delle-mosse-della-fase-3.md)); i tre ADR sono in stato
+Proposta. È stato eseguito solo sulla macchina dell'autore: la CI non l'ha ancora eseguito.
 
-Il gate della Fase 2 è valutato voce per voce nella sezione *Status* del README: ognuna delle
-cinque voci della [roadmap](docs/roadmap.md#fase-2) ha il comando che la mostra (`make test`, e
-`make differential-deep` per il valore della ricerca e lo stato incrementale), terminato con
-codice 0 sulla macchina dell'autore; `make check`, che esegue `make test`, è passato anche nella
-CI su cc6fceb e su b3190dc, sulle due immagini (sotto). Il gate **non è dichiarato chiuso**.
-Restano aperti:
+Il gate della Fase 3 è valutato voce per voce nella sezione *Status* del README: ognuna delle
+cinque voci della [roadmap](docs/roadmap.md#fase-3) ha il comando che la mostra (`make test`,
+suite `optimized-tt` e `optimized-pvs` e `differential`; `make differential-deep`; `make bench`
+per le misure), terminato con codice 0 sulla macchina dell'autore. Il gate **non è dichiarato
+chiuso**. Restano aperti:
 
 - le regole che ogni gate aggiunge ([verifica](docs/verifica.md#gate-di-fase)): nessuna
-  revisione dell'autore del lavoro della Fase 2 è registrata.
+  revisione dell'autore del lavoro della Fase 3 è registrata;
+- ADR-0021, ADR-0022 e ADR-0023 sono proposte, non accettate;
+- uno scostamento da INV-X3 (Deciso): la TT, PVS e NegaScout e l'ordinamento cambiano i nodi di
+  una ricerca, un'uscita, quindi vale il percorso intero di ricerca, self-play e validazione
+  statistica compresi, che non esistono ancora (Fase 10):
+  [EXP-0003](research/exp-0003-ricerca-della-fase-3.md) è Proposto;
+- [QA-01](docs/limiti-e-rischi.md#qa-01) e [QA-02](docs/limiti-e-rischi.md#qa-02) restano
+  aperte; ADR-0021 propone i default che il codice applica;
+- la CI non ha eseguito `make check` sul codice della Fase 3.
 
-Lo stato incrementale della valutazione (ADR-0018 punto 6, ADR-0019 punto 2) ha ora anche la
-misura che ADR-0017 chiede: [EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md) è chiuso,
-Accettato, il 2026-10-08, con l'esecuzione confermativa sul commit dd5a2a5.
-
-Tre voci che tenevano aperto il gate sono chiuse dalle decisioni dell'autore: ADR-0018 e
-ADR-0019 sono accettati; i sei pesi della struttura pedonale, cinque dei quali erano costanti di
-Fruit 2.1, li fissa ora una regola scritta ([QA-18](docs/limiti-e-rischi.md#qa-18),
-[valutazione](docs/valutazione.md#struttura-pedonale)); INV-X7 si applica ai parametri della
-valutazione dalla Fase 10 ([ADR-0020](docs/adr/0020-parametri-della-valutazione-dalla-fase-10.md),
-che chiude [QA-19](docs/limiti-e-rischi.md#qa-19)).
-
-Un'altra voce che teneva aperto il gate è soddisfatta: le modifiche fatte dopo cc6fceb, eseguite
-prima solo sulla macchina dell'autore, sono nel commit b3190dc, su cui la run 37215795264 ha
-passato `make check` sulle due immagini (sotto).
+**La Fase 2 è chiusa** dalla decisione dell'autore del 2026-10-08 di procedere alla Fase 3. Le
+cinque voci del suo gate hanno ciascuna il comando che la mostra, terminato con codice 0 sulla
+macchina dell'autore; `make check` è passato anche nella CI su cc6fceb e su b3190dc, sulle due
+immagini (sotto). La voce delle regole che ogni gate aggiunge non è soddisfatta: nessuna
+revisione dell'autore del lavoro della Fase 2 è registrata, e la voce è superata dalla decisione
+dell'autore di procedere, come per la Fase 1. Le altre voci che tenevano aperto il gate erano
+chiuse prima: ADR-0018 e ADR-0019 accettati; i pesi della struttura pedonale fissati da una
+regola ([QA-18](docs/limiti-e-rischi.md#qa-18)); INV-X7 per la valutazione dalla Fase 10
+([ADR-0020](docs/adr/0020-parametri-della-valutazione-dalla-fase-10.md), che chiude
+[QA-19](docs/limiti-e-rischi.md#qa-19)); lo stato incrementale della valutazione con la misura
+di ADR-0017 ([EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md), Accettato);
+le modifiche dopo cc6fceb nel commit b3190dc, passato nella CI (run 37215795264).
 
 Il gate della Fase 0 che la [roadmap](docs/roadmap.md#fase-0) propone è soddisfatto: ogni sua
 voce ha il comando che la mostra (`make check` su un checkout pulito, `make test`, `make bench`,
@@ -58,7 +65,11 @@ con `make perft-deep` e con `make differential-deep`. Il livello ottimizzato ha 
 valutazione classica, con materiale, piece-square tables e fase incrementali in make e unmake, e
 negamax, alpha-beta e iterative deepening a profondità fissa: li giudicano le suite
 `optimized-evaluation`, `optimized-search` e `differential`, e la firma di ricerca in
-`tests/search-signature.sexp`, che scrive solo `make signatures`.
+`tests/search-signature.sexp`, che scrive solo `make signatures`. Dalla Fase 3 ha anche la
+transposition table, l'ordinamento delle mosse e PVS e NegaScout con i tipi di nodo: li giudicano
+le suite `optimized-tt`, `optimized-pvs` e `differential` (il valore della ricerca di default
+contro il riferimento), e la seconda parte della firma, la ricerca di default con la TT in
+modalità di verifica.
 
 Il gate della [Fase 1](docs/roadmap.md#fase-1), rivalutato voce per voce il 2026-10-04 (il README
 ne dà la tabella, nella sezione *Status*):
@@ -90,7 +101,7 @@ ne dà la tabella, nella sezione *Status*):
 prima di ogni fase successiva dell'engine ottimizzato. Nessuna ricerca aggressiva e nessuna TT
 prima che il gate di perft passi (INV-X8). Lo stato di una fase è l'esito del suo gate: non si
 scrivono durate, percentuali né date di avanzamento; si scrive la data di una decisione
-dell'autore, come il passaggio alla Fase 2.
+dell'autore, come il passaggio alla Fase 2 e alla Fase 3.
 
 Principio operativo: non si scrive che qualcosa funziona, passa o è veloce senza aver eseguito il
 comando che lo mostra. La prima bozza del repository dichiarava completa una fase senza essere mai
@@ -150,7 +161,11 @@ stata compilata: vedi il [CHANGELOG](CHANGELOG.md).
   ADR-0014 (punto 6) hanno l'equivalenza ma non la misura: che cosa manca è in ADR-0017. Un terzo
   caso è venuto con la Fase 2, lo stato incrementale della valutazione (ADR-0018 punto 6, ADR-0019
   punto 2, accettati): ne soddisfa le condizioni
-  ([EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md), Accettato).
+  ([EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md), Accettato). Le tecniche
+  della Fase 3 (TT, PVS e NegaScout, ordinamento) cambiano i nodi di una ricerca: ADR-0017 non si
+  applica, vale il percorso intero, e il loro record,
+  [EXP-0003](research/exp-0003-ricerca-della-fase-3.md), è Proposto. Il valore lo controllano i
+  test, come evidenza per campioni; l'efficacia non è misurata con il percorso intero.
 - **Una sola metrica non decide.** L'NPS è l'ultima della gerarchia
   ([misure](docs/misure.md#gerarchia-delle-metriche), INV-X11).
 
@@ -207,8 +222,9 @@ stata compilata: vedi il [CHANGELOG](CHANGELOG.md).
 - Nel hot path non si alloca (INV-A5): `Move` è un valore packed, i buffer sono preallocati. Che
   cosa alloca davvero si misura con `sb-ext:get-bytes-consed`, non si afferma: il test
   `perft-allocates-nothing-after-warm-up` lo controlla in `make test`, con
-  `evaluation-allocates-nothing-after-warm-up` e `search-allocates-nothing-after-warm-up` per la
-  valutazione e la ricerca; `make hot-path` mostra il disassemblato.
+  `evaluation-allocates-nothing-after-warm-up`, `search-allocates-nothing-after-warm-up` e
+  `phase-3-search-allocates-nothing-after-warm-up` per la valutazione, le ricerche baseline e
+  quelle della Fase 3 con la TT; `make hot-path` mostra il disassemblato.
 - **Hot path del livello ottimizzato** ([ADR-0014](docs/adr/0014-policy-di-compilazione-del-livello-ottimizzato.md),
   accettato). I suoi file sono elencati una volta sola, in `*hot-path-files*`
   (`src/optimized/policy.lisp`), e proclamano la policy con `(declaim-optimized-policy)`; i
@@ -250,16 +266,16 @@ target (`make help` li elenca):
 | Comando | Fa |
 |---|---|
 | `make build` | compila i tre sistemi con gli avvisi trattati come errori |
-| `make test` | build, poi tutte le suite di test (perft alle profondità standard, fuzzer, test differenziali, valutazione e ricerca dei due livelli, firma di ricerca) |
+| `make test` | build, poi tutte le suite di test (perft alle profondità standard, fuzzer, test differenziali, valutazione e ricerca dei due livelli, TT, PVS, NegaScout e ordinamento del livello ottimizzato, firma di ricerca) |
 | `make lint` · `make lint-selftest` | linter; prova del linter, dello strumento dei link e del caricamento rigoroso (`tools/build.lisp --self-test`, cinque casi piantati in `build/self-test/`) su campioni con errori noti |
 | `make links` | link e ancore nei file Markdown |
 | `make test-checked` | come `make test`, con il hot path del livello ottimizzato compilato a `safety 3` ([ADR-0014](docs/adr/0014-policy-di-compilazione-del-livello-ottimizzato.md)); fuori da `make check` |
 | `make perft-deep` | i perft profondi dei due livelli; fuori da `make check` |
 | `make differential-deep` | il test differenziale tra ottimizzato e riferimento su milioni di posizioni, con la valutazione, il valore della ricerca e le varianti principali rigiocate dal riferimento a profondità maggiori, e i valori della firma di ricerca confrontati con alpha-beta del riferimento alla profondità della firma; fuori da `make check` |
-| `make bench` | registro dell'ambiente, poi perft (riferimento, e ottimizzato con ciascuna implementazione degli attacchi dei pezzi a lunga gittata, in passate `fixed-magic magic ray ray magic fixed-magic` con campioni di circa mezzo secondo di CPU e la tabella di ogni passata), nodi per secondo di alpha-beta del livello ottimizzato alla profondità della firma, costo di una chiamata della valutazione nei due livelli (tre righe in passate intercalate A B C C B A, con la mediana di ogni passata), ricerca e perft con le due varianti dello stato della valutazione di EXP-0002 in passate A B B A, con l'esito della sua regola di decisione, utilità sui bit e attacchi dei pezzi a lunga gittata, in tempo CPU, con i contatori del GC; il tempo reale solo per le righe di perft e per l'intera esecuzione; il carico medio all'inizio e alla fine; misure di una macchina; fuori da `make check` |
-| `make hot-path` | note di efficienza di SBCL, scansione del disassemblato delle funzioni di ogni nodo del perft e della ricerca e di `bitboard-evaluate` (provata prima su funzioni piantate), allocazione, tempi di perft per policy del hot path del livello ottimizzato, con le funzioni di nodo espanse e chiamate (misure di una macchina); fuori da `make check` |
+| `make bench` | registro dell'ambiente, poi perft (riferimento, e ottimizzato con ciascuna implementazione degli attacchi dei pezzi a lunga gittata, in passate `fixed-magic magic ray ray magic fixed-magic` con campioni di circa mezzo secondo di CPU e la tabella di ogni passata), nodi per secondo di alpha-beta del livello ottimizzato alla profondità della firma, costo di una chiamata della valutazione nei due livelli (tre righe in passate intercalate A B C C B A, con la mediana di ogni passata), ricerca e perft con le due varianti dello stato della valutazione di EXP-0002 in passate A B B A, con l'esito della sua regola di decisione, le ricerche della Fase 3 con undici configurazioni (con e senza ordinamento e TT, tre dimensioni, tre politiche, due modalità) in due passate, con nodi, tempo, efficienza dell'ordinamento, hit rate e tipi di nodo, il costo di inserimento e sonda della TT, utilità sui bit e attacchi dei pezzi a lunga gittata, in tempo CPU, con i contatori del GC; il tempo reale solo per le righe di perft e per l'intera esecuzione; il carico medio all'inizio e alla fine; misure di una macchina; fuori da `make check` |
+| `make hot-path` | note di efficienza di SBCL, scansione del disassemblato delle funzioni di ogni nodo del perft e delle ricerche, di `bitboard-evaluate`, dell'ordinamento e di sonda e inserimento nella TT (provata prima su funzioni piantate), allocazione, tempi di perft per policy del hot path del livello ottimizzato, con le funzioni di nodo espanse e chiamate (misure di una macchina); fuori da `make check` |
 | `make magics` | ripete la ricerca dei numeri magici dal seme, senza costruire prima le tavole dai numeri nel file, e riscrive `src/optimized/magic-numbers.lisp` ([ADR-0016](docs/adr/0016-attacchi-dei-pezzi-a-lunga-gittata.md)); fuori da `make check` |
-| `make signatures` | ricalcola la firma di ricerca e riscrive `tests/search-signature.sexp`, con la sua intestazione di provenienza; solo per una modifica che deve cambiare un'uscita della ricerca, mai per far passare una modifica `[EXACT]` ([verifica](docs/verifica.md#regressione-di-ricerca)); fuori da `make check` |
+| `make signatures` | ricalcola la firma di ricerca, di alpha-beta e della ricerca di default della Fase 3, e riscrive `tests/search-signature.sexp`, con la sua intestazione di provenienza; solo per una modifica che deve cambiare un'uscita della ricerca, mai per far passare una modifica `[EXACT]` ([verifica](docs/verifica.md#regressione-di-ricerca)); fuori da `make check` |
 
 La variabile d'ambiente `SCF_SLIDERS` (`fixed-magic`, `magic` o `ray`; non impostata vale
 `fixed-magic`) sceglie, per ogni target che carica il sistema, l'implementazione con cui si
@@ -309,7 +325,9 @@ immagini, 252 test e 0 fallimenti su ciascuna; la firma di ricerca è riprodotta
 allocazione hanno stampato 0 byte per il perft, la valutazione e la ricerca. Le modifiche fatte
 dopo cc6fceb sono nel commit b3190dc: la run 37215795264 vi ha eseguito `make check` sulle
 stesse immagini, 253 test e 0 fallimenti su ciascuna, con la firma riprodotta e 0 byte nei tre
-test di allocazione. `make perft-deep`, `make differential-deep`, `make test-checked`,
+test di allocazione. Il codice della Fase 3 è stato eseguito solo sulla macchina dell'autore:
+`make check` vi esegue 281 test, e il test di allocazione della ricerca della Fase 3 vi stampa 0
+byte su 1791332 nodi. `make perft-deep`, `make differential-deep`, `make test-checked`,
 `make hot-path` e `make bench` sono stati eseguiti solo sulla macchina dell'autore, macOS arm64
 con SBCL 2.6.9. Su FreeBSD, macOS Intel e Linux ARM64 non è stato eseguito nulla. Una cosa vale
 su una piattaforma solo se vi è stata eseguita.

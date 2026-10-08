@@ -5,13 +5,15 @@
 ;;;; ("make signatures"). It loads the test system (a forced load, tools/load.lisp: the files are
 ;;;; compiled again with the SCF_SLIDERS of this run and the default policy), recomputes the
 ;;;; signature of every position of *SEARCH-SIGNATURE-POSITIONS* (tests/test-optimized-search.lisp:
-;;;; value, best move, node count and principal variation of alpha-beta at the signature depth,
-;;;; one thread), and writes the file with a provenance header: the git revision the working tree
-;;;; was based on and whether the tree was clean, the policy of the hot path, the slider
+;;;; value, best move, node count and principal variation at the signature depth, one thread, of
+;;;; the baseline alpha-beta and of the default search of Phase 3 with its table in verification
+;;;; mode), and writes the file with a provenance header: the git revision the working tree was
+;;;; based on and whether the tree was clean, the policy of the hot path, the slider
 ;;;; implementation, the Lisp, the operating system and the machine type, and the date. It then
 ;;;; reads the file back and checks that it holds what was computed: the format, the algorithm,
-;;;; the depth and every entry (name, FEN, value, best move, node count, principal variation)
-;;;; compared with EQUAL against the entries it wrote. Exit code 0 on success, 1 otherwise.
+;;;; the depth, the configuration of the default search and every entry of both searches (name,
+;;;; FEN, value, best move, node count, principal variation) compared with EQUAL against the
+;;;; entries it wrote. Exit code 0 on success, 1 otherwise.
 ;;;;
 ;;;; It is not part of "make check" and no other target runs it. The test
 ;;;; optimized-search/search-signature-is-reproduced fails when the committed file is not what
@@ -74,10 +76,14 @@ with a code other than 0 or prints nothing."
           ""
           "Each entry: the name and FEN of a position (tests/test-optimized-search.lisp, where"
           "each position's origin is written), then the value from the side to move, the best"
-          "move, the node count (root and leaves included) and the principal variation of the"
-          "optimized layer's alpha-beta at the depth below, one thread, no transposition table,"
-          "no move ordering (the generator's order), the classical evaluation of"
-          "docs/valutazione.md. The moves are in long algebraic form."
+          "move, the node count (root and leaves included) and the principal variation at the"
+          "depth below, one thread, the classical evaluation of docs/valutazione.md. :ENTRIES"
+          "holds those of the optimized layer's alpha-beta, the baseline of Phase 2: no"
+          "transposition table, no move ordering (the generator's order). :DEFAULT-ENTRIES"
+          "holds those of the default search of Phase 3 (:DEFAULT-SEARCH, ADR-0022): iterative"
+          "deepening of PVS with the move ordering of Phase 3 and a fresh transposition table"
+          "in verification mode; its node count is the sum over the iterations. The two give"
+          "the same values. The moves are in long algebraic form."
           ""
           "Provenance of this file:"
           (format nil "  revision base: ~A" (revision-base))
@@ -105,29 +111,35 @@ with a code other than 0 or prints nothing."
              collect (format nil "~(~A~) ~S in the file, ~S computed" key
                              (getf (cddr found) key) (getf (cddr computed) key))))))
 
+(defun entries-differences (label computed found)
+  "The differences between the entries COMPUTED and the entries FOUND in the file, as a list of
+strings, each preceded by LABEL: the number of entries, then each entry, by position."
+  (append
+   (unless (= (length computed) (length found))
+     (list (format nil "~A: ~D entries in the file, ~D computed" label (length found)
+                   (length computed))))
+   (loop for entry in computed
+         for other in found
+         unless (equal entry other)
+           collect (format nil "~A: ~A: ~{~A~^; ~}" label (first entry)
+                           (or (entry-differences entry other)
+                               (list "the entry has other contents"))))))
+
 (defun read-back-differences (written read)
   "The differences between WRITTEN, the property list of the signature as computed, and READ,
 the property list read back from the file, as a list of strings (empty when they are EQUAL):
-the header keys :FORMAT, :ALGORITHM and :DEPTH, the number of entries, then each entry, by
-position. Anything else that keeps the two from being EQUAL is reported as one line."
+the header keys :FORMAT, :ALGORITHM, :DEPTH and :DEFAULT-SEARCH, then the entries of each
+search. Anything else that keeps the two from being EQUAL is reported as one line."
   (let* ((*print-pretty* nil)
-         (computed (getf written :entries))
-         (found (getf read :entries))
          (differences
            (append
-            (loop for key in '(:format :algorithm :depth)
+            (loop for key in '(:format :algorithm :depth :default-search)
                   unless (equal (getf written key) (getf read key))
                     collect (format nil "~(~S~) ~S in the file, ~S computed" key
                                     (getf read key) (getf written key)))
-            (unless (= (length computed) (length found))
-              (list (format nil "~D entries in the file, ~D computed" (length found)
-                            (length computed))))
-            (loop for entry in computed
-                  for other in found
-                  unless (equal entry other)
-                    collect (format nil "~A: ~{~A~^; ~}" (first entry)
-                                    (or (entry-differences entry other)
-                                        (list "the entry has other contents")))))))
+            (entries-differences "alpha-beta" (getf written :entries) (getf read :entries))
+            (entries-differences "default search" (getf written :default-entries)
+                                 (getf read :default-entries)))))
     (if (and (null differences) (not (equal written read)))
         (list "the file holds other contents than those computed")
         differences)))
@@ -144,8 +156,8 @@ computed."
            (entries (getf read :entries)))
       (when differences
         (error "the file written does not read back as computed:~{~%  ~A~}" differences))
-      (format t "signatures: wrote ~A, ~D positions at depth ~D, read back equal to what was ~
-                 computed~%"
+      (format t "signatures: wrote ~A, ~D positions at depth ~D, two searches each, read ~
+                 back equal to what was computed~%"
               (enough-namestring pathname scf-tools:*repository-root*) (length entries)
               (getf read :depth)))))
 

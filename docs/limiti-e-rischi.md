@@ -116,6 +116,16 @@ improbabile e innocua.
   dei bit confrontati; forzare un falso riscontro e controllare che non produca mosse illegali né
   errori.
 
+> **Proposta ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md))** — Il
+> default che la TT del livello ottimizzato applica: la chiave intera di 64 bit confrontata a
+> ogni sonda; la mossa TT usata solo se è fra le mosse legali del nodo, e scartata e contata
+> altrimenti; in modalità di verifica un controllo indipendente della posizione in ogni slot, con
+> i falsi riscontri scartati e contati. I test della suite `optimized-tt` forzano falsi riscontri
+> con una maschera di chiave di 8 e 4 bit: in modalità di verifica sono scartati e contati e il
+> valore non cambia; in modalità normale le mosse di altre posizioni si scartano, e nessuna
+> ricerca finisce in errore né esegue una mossa illegale. La questione resta aperta: la decide
+> l'autore.
+
 ### QA-02
 
 **Ripetizioni e interazione tra grafo e storia (GHI).** Una posizione ripetuta vale patta, ma la
@@ -126,6 +136,13 @@ da un altro. La specifica parla di «game graph» ma non dice come si tratta la 
   prima della sonda; accettare l'errore e classificare `HEURISTIC`.
 - *Esperimento:* una suite di posizioni il cui valore dipende da una ripetizione; confrontare la
   ricerca con TT, senza TT e con ciascuna opzione; misurare in self-play la frequenza dell'errore.
+
+> **Proposta ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md))** — Il
+> default di oggi: la ricerca non rileva ripetizioni né la regola delle cinquanta mosse, quindi
+> nessun valore memorizzato dipende dal percorso e TT-2 vale; gli orologi stanno fuori dalla
+> chiave; la TT non memorizza punteggi che dipendono dalla storia. Il test
+> `one-position-by-two-paths-has-one-key-and-one-value` lo mostra su una posizione raggiunta per
+> due percorsi. La questione resta aperta per quando la ricerca rileverà le ripetizioni.
 
 ### QA-03
 
@@ -179,6 +196,12 @@ pausa consuma il tempo della mossa.
 
 - *Esperimento:* allocare TT di varie dimensioni; eseguire ricerche; registrare
   `sb-ext:*gc-run-time*`, byte allocati e RSS; controllare se un GC avviene durante una ricerca.
+
+Oggi la TT del livello ottimizzato si alloca una volta, in vettori tipizzati, e la sonda e
+l'inserimento non allocano ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md)).
+Le righe delle ricerche della Fase 3 di `make bench` stampano, per tabelle di 2^10, 2^16 e 2^20
+slot, i byte allocati e il tempo di GC di ogni riga; l'RSS e una ricerca a tempo non sono
+misurati. La questione resta aperta.
 
 ### QA-06
 
@@ -317,6 +340,10 @@ stesso vale su c15291e (run 37183294754), su 0408743 (run 37193831706) e su b319
 numero di candidati (11064344 e 1984531 per le due disposizioni, nei log delle ultime due), e il
 test di allocazione del perft stampa 0 byte. Il riscontro vale per quelle revisioni; i log stanno
 su GitHub, non nel repository.
+
+Il codice della Fase 3 (transposition table, ordinamento, PVS e NegaScout, la firma in formato 2)
+non è ancora stato eseguito nella CI: lo ha eseguito solo la macchina dell'autore, macOS arm64
+con SBCL 2.6.9.
 
 Restano non eseguiti: Debian (Ubuntu ne deriva, ma non è Debian), FreeBSD x86-64, macOS Intel,
 ARM64 Linux e FreeBSD, hardware x86 con AVX2, AVX-512, VNNI o BMI2, sistemi NUMA. La CI non esegue

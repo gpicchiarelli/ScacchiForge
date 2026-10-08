@@ -229,12 +229,18 @@ with REPETITIONS timed calls per row, as a list of (LABEL . TEXT) and (LABEL . L
                                  "optimized level at fixed depth, in the generator's move order, "
                                  "with the classical evaluation (docs/valutazione.md); the "
                                  "classical evaluation of both levels; bit utilities and slider "
-                                 "attacks of the optimized level; one thread; no transposition "
-                                 "table; the evaluation's weights are the untuned constants of "
+                                 "attacks of the optimized level; the searches of Phase 3 "
+                                 "(alpha-beta, PVS and NegaScout with the move ordering of "
+                                 "Phase 3 and transposition tables of several sizes, policies "
+                                 "and modes, iterative deepening to the signature's depth) and "
+                                 "the store and probe of the transposition table; one thread; "
+                                 "a transposition table only in the rows of Phase 3; the "
+                                 "evaluation's weights are the untuned constants of "
                                  "docs/valutazione.md, no other parameters"))
      (cons "seeds" (format nil "inputs (MAKE-RNG seed):~{ ~(~A~) ~D~^,~} (evaluation: the random ~
-                                legal positions of the evaluation rows); perft and search have ~
-                                no random input"
+                                legal positions of the evaluation rows; tt-lookup and tt-miss: ~
+                                those of the lookup rows, stored and not stored); perft and ~
+                                search have no random input"
                            (loop for (kind . seed) in *input-seeds* append (list kind seed))))
      (cons "positions"
            (list (concatenate 'string "perft: positions by name from STANDARD-POSITION-FEN "
@@ -247,6 +253,12 @@ with REPETITIONS timed calls per row, as a list of (LABEL . TEXT) and (LABEL . L
                  (format nil "evaluation: ~D random legal positions reached from the perft ~
                               positions in at most 120 random plies"
                          *evaluation-positions*)
+                 (format nil "searches of Phase 3:~{ ~A~^,~} of the search signature, value and, ~
+                              for the default search, node count checked against it"
+                         *variant-positions*)
+                 (format nil "lookup: two sets of ~D random legal positions reached from the ~
+                              perft positions in at most 120 random plies"
+                         *lookup-positions*)
                  "no position or opening file"))
      (cons "repetitions"
            (list (format nil "microbenchmarks: ~D timed call~:P per row, after an untimed ~

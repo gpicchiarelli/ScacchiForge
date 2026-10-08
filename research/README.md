@@ -102,6 +102,7 @@ codice sperimentale non sta qui: vive nel livello a cui appartiene, dietro l'int
 |---|---|---|
 | [EXP-0001](exp-0001-attacchi-dei-pezzi-a-lunga-gittata.md) | Attacchi dei pezzi a lunga gittata: magic bitboard contro raggi | Accettato, secondo [ADR-0017](../docs/adr/0017-percorso-di-ricerca-per-le-alternative-exact.md) |
 | [EXP-0002](exp-0002-stato-incrementale-della-valutazione.md) | Stato incrementale della valutazione: aggiornamento in make e unmake contro ricalcolo | Accettato, secondo [ADR-0017](../docs/adr/0017-percorso-di-ricerca-per-le-alternative-exact.md) |
+| [EXP-0003](exp-0003-ricerca-della-fase-3.md) | Ricerca della Fase 3: transposition table, PVS e NegaScout, ordinamento delle mosse | Proposto |
 
 EXP-0001 è stato aperto dopo che la tecnica era già il default di
 [ADR-0016](../docs/adr/0016-attacchi-dei-pezzi-a-lunga-gittata.md), allora in stato Proposta,
@@ -118,3 +119,13 @@ anche questo contro l'ordine che questa pagina chiede. Lo stato ha l'equivalenza
 da zero, non la misura che ADR-0017 chiede; il record ne ha scritto la regola di decisione prima
 della misura, poi la variante senza stato è entrata nel commit dd5a2a5, e l'esecuzione
 confermativa su quel commit ha chiuso il record, Accettato, il 2026-10-08 (sezione 9 del record).
+
+EXP-0003 è stato aperto con il codice della Fase 3, non prima: la transposition table, PVS e
+NegaScout e l'ordinamento delle mosse sono entrati nel codice insieme al record, proposti da
+[ADR-0021](../docs/adr/0021-transposition-table-del-livello-ottimizzato.md),
+[ADR-0022](../docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md) e
+[ADR-0023](../docs/adr/0023-ordinamento-delle-mosse-della-fase-3.md), in stato Proposta. Le tre
+tecniche cambiano i nodi di una ricerca, un'uscita: ADR-0017 non si applica, e per accettarle
+servono anche self-play e validazione statistica, che il repository non può ancora eseguire
+(Fase 10). Il valore lo controllano i test, come evidenza per campioni; l'efficacia non è
+misurata con la sequenza intera.

@@ -3,8 +3,10 @@
 ;;;; small interface (classical rays, or magic bitboards whose numbers this layer searches from
 ;;;; a seed), make/unmake with a preallocated undo stack and an incremental key, pseudo-legal
 ;;;; generation, a legality filter, perft, the classical evaluation with its incremental state,
-;;;; the colour swap of a position, and the search baselines (negamax, alpha-beta, iterative
-;;;; deepening). Every result it computes is compared with the reference model by the tests.
+;;;; the colour swap of a position, the search baselines (negamax, alpha-beta, iterative
+;;;; deepening), and the searches of Phase 3: a transposition table, the move ordering, PVS and
+;;;; NegaScout with explicit node types. Every result it computes is compared with the reference
+;;;; model by the tests, directly or through the baselines.
 ;;;; There is no PEXT, no SIMD and no CPU detection yet; they belong to later phases and must be
 ;;;; checked the same way.
 ;;;;
@@ -53,8 +55,20 @@
    #:bitboard-evaluate #:bitboard-evaluate-from-scratch #:bitboard-classical-breakdown
    ;; colour swap
    #:bitboard-mirror
-   ;; search baselines
+   ;; transposition table
+   #:bitboard-transposition-table #:bitboard-transposition-table-p
+   #:make-bitboard-transposition-table #:bitboard-tt-probe #:bitboard-tt-store
+   #:bitboard-tt-clear #:bitboard-tt-reset-statistics #:bitboard-tt-new-search
+   #:bitboard-tt-statistics #:bitboard-tt-entry #:bitboard-tt-occupancy #:bitboard-tt-size
+   #:bitboard-tt-policy #:bitboard-tt-mode #:*bitboard-tt-policies* #:*bitboard-tt-modes*
+   #:+bitboard-tt-exact+ #:+bitboard-tt-lower+ #:+bitboard-tt-upper+
+   #:+bitboard-tt-default-entries+
+   ;; move ordering
+   #:bitboard-ordered-moves
+   ;; searches
    #:bitboard-search-context #:make-bitboard-search-context #:bitboard-search-with-context
-   #:bitboard-search-context-pv #:bitboard-search #:bitboard-negamax-search
-   #:bitboard-alpha-beta-search #:bitboard-iterative-deepening #:bitboard-mate-score-p
+   #:bitboard-search-context-pv #:bitboard-search-statistics #:bitboard-search
+   #:bitboard-negamax-search #:bitboard-alpha-beta-search #:bitboard-iterative-deepening
+   #:bitboard-mate-score-p #:*bitboard-search-algorithms* #:*bitboard-default-search*
+   #:bitboard-default-search
    #:+bitboard-mate-score+ #:+bitboard-mate-bound+ #:+bitboard-max-search-depth+))

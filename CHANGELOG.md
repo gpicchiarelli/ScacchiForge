@@ -66,12 +66,26 @@ revisione in esame, non questo file.
   - lo scambio dei colori sulle bitboard (`bitboard-mirror`);
   - negamax, alpha-beta fail-soft e iterative deepening a profondità fissa, con le convenzioni
     della ricerca del riferimento e un contesto preallocato (buffer delle mosse, tavola
-    triangolare delle varianti principali, contatore dei nodi).
+    triangolare delle varianti principali, contatore dei nodi);
+  - dalla Fase 3, una transposition table (`src/optimized/transposition.lisp`,
+    [ADR-0021](docs/adr/0021-transposition-table-del-livello-ottimizzato.md), in stato Proposta):
+    entry di 16 byte in vettori tipizzati, chiave intera confrontata, dimensione, politica di
+    sostituzione (`:always`, `:depth-preferred`, `:two-slot`) e modalità come argomenti; una
+    modalità di verifica che soddisfa TT-1…TT-4, con un controllo indipendente della posizione in
+    ogni slot e i falsi riscontri scartati e contati;
+  - l'ordinamento delle mosse della Fase 3 (`src/optimized/ordering.lisp`,
+    [ADR-0023](docs/adr/0023-ordinamento-delle-mosse-della-fase-3.md), in stato Proposta): mossa
+    TT, mossa PV, catture MVV/LVA, promozioni, le altre; la mossa TT solo se legale;
+  - PVS e NegaScout in un nodo della Fase 3 accanto alle baseline invariate, con i tipi di nodo
+    PV, Cut e All attesi e osservati e contati, le statistiche di una ricerca, l'iterative
+    deepening che passa variante e TT all'iterazione seguente, e la ricerca di default della
+    Fase 3 (`bitboard-default-search`, [ADR-0022](docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md),
+    in stato Proposta).
 
   Usa il riferimento solo per convertire una posizione
-  ([ADR-0010](docs/adr/0010-regole-di-indipendenza-tra-i-livelli.md)). Non ha ordinamento delle
-  mosse, TT, potature oltre ad alpha-beta, quiescenza, PEXT in hardware, SIMD né rilevamento
-  della CPU.
+  ([ADR-0010](docs/adr/0010-regole-di-indipendenza-tra-i-livelli.md)). Non ha quiescenza,
+  killer, history, potature oltre ad alpha-beta e ai tagli della TT, PEXT in hardware, SIMD né
+  rilevamento della CPU.
 - **Policy di compilazione del hot path del livello ottimizzato**
   ([ADR-0014](docs/adr/0014-policy-di-compilazione-del-livello-ottimizzato.md)):
   `(speed 3) (safety 1) (debug 0)`, scritta una volta sola in `src/optimized/policy.lisp` e
@@ -143,7 +157,9 @@ revisione in esame, non questo file.
   la ricalcola. È un valore di regressione di questo engine, non un oracolo
   ([verifica](docs/verifica.md#regressione-di-ricerca)). La giudica il riferimento: `make test`
   ne rigioca le varianti principali, `make differential-deep` ne confronta anche i valori con
-  quelli del suo alpha-beta a profondità 4.
+  quelli del suo alpha-beta a profondità 4. Dal formato 2 registra anche la ricerca di default
+  della Fase 3, con la TT in modalità di verifica, sulle stesse posizioni: i valori sono quelli
+  di alpha-beta, e un test lo controlla.
 - **Benchmark:** un harness che stampa il registro dell'ambiente (data, comando esatto,
   revisione e stato dell'albero di lavoro, SBCL, macchina, policy di compilazione,
   implementazione degli attacchi, semi, carico medio) e poi misura in tempo CPU, con i byte
@@ -159,13 +175,18 @@ revisione in esame, non questo file.
   righe danno i nanosecondi per chiamata della valutazione del livello ottimizzato, con lo stato
   incrementale e da zero, e di quella del riferimento, sulle stesse posizioni casuali con seme
   dichiarato, dopo il controllo che diano la stessa somma, in passate A B C C B A con la mediana
-  di ogni passata. Il tempo reale è stampato solo accanto alle righe di perft e per l'intera
-  esecuzione. Sono misure di una macchina, non risultati; nessuna dice qualcosa sulla forza.
+  di ogni passata. Dalla Fase 3, le ricerche della Fase 3 con undici configurazioni (con e senza
+  ordinamento e TT, tre dimensioni, tre politiche, due modalità) in due passate, con nodi, tempo,
+  efficienza dell'ordinamento, cutoff rate, tipi di nodo e hit rate, e il costo di inserimento e
+  sonda della TT (`benchmarks/search-variants-bench.lisp`). Il tempo reale è stampato solo
+  accanto alle righe di perft e per l'intera esecuzione. Sono misure di una macchina, non
+  risultati; nessuna dice qualcosa sulla forza.
 - **Strumenti** in Common Lisp: build senza avvisi con autotest del controllo degli avvisi,
   linter con autotest, controllo di link e ancore con autotest (portato da ArcDocDB), perft
   profondo, test differenziale profondo, benchmark, ispezione del hot path (note di efficienza,
-  scansione del disassemblato delle funzioni di nodo del perft e della ricerca e di
-  `bitboard-evaluate`, provata prima su funzioni piantate, allocazione, tempi per policy),
+  scansione del disassemblato delle funzioni di nodo del perft e delle ricerche, di
+  `bitboard-evaluate`, dell'ordinamento e di sonda e inserimento nella TT, provata prima su
+  funzioni piantate, allocazione, tempi per policy),
   generatore dei numeri magici e scrittore della firma di ricerca.
 - **Makefile** con i target `help`, `build`, `test`, `test-checked`, `lint`, `lint-selftest`,
   `links`, `check`, `perft-deep`, `differential-deep`, `bench`, `hot-path`, `magics` e
@@ -589,6 +610,43 @@ revisione in esame, non questo file.
   (QA-14). Una misura di una macchina: x86-64 non è misurato. README, `CLAUDE.md`, architettura,
   valutazione, misure, l'indice degli esperimenti e quello degli ADR lo riportano. Il gate della
   Fase 2 resta aperto su una voce: la revisione dell'autore.
+- **Dopo il commit 094fd8f**, per decisione dell'autore del 2026-10-08 di procedere alla Fase 3,
+  con il lavoro della Fase 3 (in *Aggiunto*):
+  - *Fase 2 chiusa.* Le cinque voci del suo gate hanno ciascuna il comando che la mostra; la voce
+    delle regole che ogni gate aggiunge non è soddisfatta, perché nessuna revisione dell'autore
+    del lavoro della Fase 2 è registrata, ed è superata dalla decisione dell'autore di procedere,
+    come per la Fase 1. README, `CLAUDE.md` e roadmap lo riportano.
+  - *Tre ADR in stato Proposta:* [ADR-0021](docs/adr/0021-transposition-table-del-livello-ottimizzato.md)
+    (la TT, con i default proposti per QA-01 e QA-02, che restano aperte),
+    [ADR-0022](docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md) (PVS, NegaScout, tipi di nodo,
+    ricerca di default, firma in formato 2) e
+    [ADR-0023](docs/adr/0023-ordinamento-delle-mosse-della-fase-3.md) (ordinamento). Le tre
+    tecniche cambiano i nodi di una ricerca: il loro record,
+    [EXP-0003](research/exp-0003-ricerca-della-fase-3.md), è Proposto, e lo scostamento da INV-X3
+    è dichiarato (self-play e validazione statistica non esistono ancora).
+  - *Test.* Due suite nuove, `optimized-tt` e `optimized-pvs` (22 test): la modalità di verifica
+    contro la ricerca senza TT con tabelle da 2 a 65536 slot e le tre politiche, falsi riscontri
+    forzati con una maschera di chiave, mosse di altre posizioni e entry alterate mai eseguite,
+    ogni entry come bound vero, una posizione raggiunta per due percorsi; PVS, NegaScout e
+    l'ordinamento contro alpha-beta, anche permutati; l'ordine della regola ricalcolato dal test;
+    l'albero minimo di Knuth e Moore con un ordinamento perfetto; i tipi di nodo; l'allocazione.
+    La suite `differential` confronta anche il valore e la variante della ricerca di default con
+    il riferimento. `make check` esegue 281 test.
+  - *Firma di ricerca.* Formato 2, riscritto da `make signatures`: la parte di alpha-beta è
+    invariata (cambia solo l'intestazione), e si aggiunge la ricerca di default della Fase 3 con
+    la TT in modalità di verifica, con nodi diversi e gli stessi valori. Lo strumento rilegge
+    le due parti.
+  - *Documenti.* Classificazione (le righe di PVS e NegaScout, della TT e dell'ordinamento
+    nominano gli ADR proposti), verifica (la sezione *Ricerca della Fase 3*, la modalità di
+    verifica implementata, la firma in due parti), architettura, misure, invarianti (INV-C5 e
+    INV-C6 con i loro test), questioni aperte (QA-01, QA-02, QA-05), roadmap, README, `CLAUDE.md`
+    e `CONTRIBUTING.md`.
+  - *Esempio del README.* L'esempio della ricerca nel *Quick start* stampava 61792 nodi: la
+    ricerca e la firma danno 61888 dalla modifica dei pesi della struttura pedonale. Ora
+    stampa 61888, ed è seguito dalla ricerca di default. Allo stesso modo
+    [verifica](docs/verifica.md#regressione-di-ricerca) e un commento di
+    `tests/test-optimized-search.lisp` dicevano che alpha-beta del riferimento visita 899060 nodi
+    sulle dodici posizioni della firma: `make differential-deep` ne stampa 897329.
 
 ### Rimosso
 

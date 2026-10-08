@@ -63,7 +63,7 @@ BITBOARD-UNMAKE-MOVE. Every other caller calls them. The build leaves it true;
 tools/hot-path.lisp binds it to NIL while it compiles the hot path for one more timed variant,
 so that \"make hot-path\" shows what the calls cost.")
   (defparameter *hot-path-files* '("rays" "sliders" "attacks" "make" "movegen" "legal" "perft"
-                                   "evaluation" "search")
+                                   "evaluation" "transposition" "ordering" "search")
     "The files of src/optimized/ that proclaim the layer's policy, in load order. A tool that
 recompiles the hot path with another policy or another slider implementation (make hot-path,
 make bench) compiles these, in this order.")

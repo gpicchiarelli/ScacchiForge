@@ -4,9 +4,10 @@
 ;;;; ("make hot-path"). It prints, in this order:
 ;;;;   1. SBCL's efficiency notes for each hot-path file, recompiled with the notes shown (the
 ;;;;      build muffles them: src/optimized/policy.lisp);
-;;;;   2. for each hot function (perft's and the search's), the length of its disassembly and
-;;;;      every full call, call of a static or assembly routine (generic arithmetic among them)
-;;;;      and allocation sequence the disassembly names; before that, the same scan on planted
+;;;;   2. for each hot function (perft's, the searches', the ordering's and the transposition
+;;;;      table's), the length of its disassembly and every full call, call of a static or
+;;;;      assembly routine (generic arithmetic among them) and allocation sequence the
+;;;;      disassembly names; before that, the same scan on planted
 ;;;;      functions with a generic +, a cons, a full call, a boxed 64-bit result and a call of
 ;;;;      ERROR, each of which it must report, and on a planted function with none, for which it
 ;;;;      must report nothing (the tool fails otherwise), so that the scan is shown to work on
@@ -39,11 +40,14 @@
 
 (defparameter *hot-functions*
   '("BITBOARD-GENERATE-PSEUDO-LEGAL" "BITBOARD-GENERATE-LEGAL" "BITBOARD-MAKE-MOVE"
-    "BITBOARD-UNMAKE-MOVE" "PERFT-NODE" "BITBOARD-EVALUATE" "NEGAMAX-NODE" "ALPHA-BETA-NODE")
+    "BITBOARD-UNMAKE-MOVE" "PERFT-NODE" "BITBOARD-EVALUATE" "NEGAMAX-NODE" "ALPHA-BETA-NODE"
+    "SEARCH-NODE" "ORDER-NODE-MOVES" "BITBOARD-TT-PROBE" "BITBOARD-TT-STORE")
   "The functions of SCACCHIFORGE.OPTIMIZED whose code a perft or a search runs for every node.
 The build expands the first four inline into PERFT-NODE (*INLINE-NODE-FUNCTIONS*,
 policy.lisp); their own compiled versions are those that every other caller runs, the search
-nodes NEGAMAX-NODE and ALPHA-BETA-NODE among them, which call BITBOARD-EVALUATE at depth 0.")
+nodes NEGAMAX-NODE, ALPHA-BETA-NODE and SEARCH-NODE among them, which call BITBOARD-EVALUATE at
+depth 0. SEARCH-NODE, the node of Phase 3, also calls ORDER-NODE-MOVES (the move ordering),
+BITBOARD-TT-PROBE and BITBOARD-TT-STORE (the transposition table).")
 
 (defparameter *timed-perfts*
   '(("startpos" 5) ("kiwipete" 4) ("pos3" 6))

@@ -9,7 +9,8 @@
 
 Una fase è chiusa quando passa il proprio gate, non prima. Questo documento non ha durate né
 colonne di stato: lo stato di una fase è l'esito del suo gate, e si legge eseguendo i controlli.
-L'unica data è quella di una decisione dell'autore, il passaggio alla Fase 2 ([Fase 1](#fase-1)).
+Le uniche date sono quelle delle decisioni dell'autore: il passaggio alla Fase 2
+([Fase 1](#fase-1)) e quello alla Fase 3 ([Fase 2](#fase-2)).
 
 La specifica indica anche la prima tappa concreta, molto disciplinata:
 
@@ -100,6 +101,17 @@ rappresentazioni incrementali dove conviene.
   invariante per scambio dei colori, vista da chi muove.
 - La prima firma di ricerca ([verifica](verifica.md#regressione-di-ricerca)) è registrata.
 
+La Fase 2 è chiusa dalla decisione dell'autore del 2026-10-08 di procedere alla Fase 3, e il
+lavoro passa alla Fase 3. Ognuna delle cinque voci qui sopra ha il comando che la mostra
+(`make test`, e `make differential-deep` per il valore della ricerca e lo stato incrementale), e
+quei comandi sono terminati con codice 0 sulla macchina dell'autore (macOS arm64, SBCL 2.6.9);
+`make check`, che esegue `make test`, è passato anche nella CI sui commit cc6fceb e b3190dc
+([QA-12](limiti-e-rischi.md#qa-12)). Il
+[README](../README.md#status), nella sezione *Status*, dà le voci con i loro comandi. Le regole
+che ogni gate aggiunge ([verifica](verifica.md#gate-di-fase)) si controllano in revisione, e una
+revisione dell'autore del lavoro della Fase 2 non è registrata: quella voce non è soddisfatta, è
+superata dalla decisione dell'autore di procedere, come per la Fase 1.
+
 ## Fase 3
 
 **Specifica:** Zobrist, TT, PVS/NegaScout, ordinamento delle mosse.
@@ -118,6 +130,16 @@ rappresentazioni incrementali dove conviene.
 - Si misurano hit rate, costo della lookup, diverse dimensioni e politiche di sostituzione, e
   l'efficienza dell'ordinamento a parte ([misure](misure.md)). Non si assume che più memoria
   renda di più.
+
+Il codice della Fase 3 esiste nel livello ottimizzato: la transposition table con le modalità
+normale e di verifica, l'ordinamento delle mosse, PVS e NegaScout con i tipi di nodo, la ricerca di
+default e la sua firma ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md),
+[ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md),
+[ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md), in stato Proposta). Quale comando
+mostra ogni voce del gate è nel [README](../README.md#status). Il gate non è dichiarato chiuso: gli
+ADR sono proposte, nessuna revisione dell'autore è registrata, e le tre tecniche cambiano i nodi
+di una ricerca, per cui INV-X3 chiede il percorso intero di ricerca, self-play compreso, che non
+è fatto ([EXP-0003](../research/exp-0003-ricerca-della-fase-3.md), Proposto).
 
 ## Fase 4
 
@@ -256,4 +278,6 @@ rappresentazioni incrementali dove conviene.
 > l'addestramento segue la Fase 8; la regressione cross-platform accompagna ogni fase sulle
 > piattaforme raggiungibili; il server si decide con un ADR. La classificazione dei nodi entra
 > con PVS nella Fase 3, che distingue già i nodi PV dagli altri; le fasi 4 e 5 la usano per
-> modulare finestra, ordinamento, potature, riduzioni ed estensioni.
+> modulare finestra, ordinamento, potature, riduzioni ed estensioni. Oggi è nel codice della
+> Fase 3, registrata e non usata ([ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md),
+> Proposta).

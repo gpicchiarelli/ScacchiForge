@@ -25,10 +25,12 @@
 them."))
 
 (defparameter *input-seeds* '((:random . 1) (:masks . 2) (:lsb . 3) (:msb . 4)
-                               (:occupancy . 5) (:evaluation . 6))
-  "The MAKE-RNG seed of each input, by kind: the input vectors of the microbenchmarks, and the
-random legal positions of the evaluation rows (:EVALUATION, search-bench.lisp). The environment
-record prints them.")
+                               (:occupancy . 5) (:evaluation . 6) (:tt-lookup . 7)
+                               (:tt-miss . 8))
+  "The MAKE-RNG seed of each input, by kind: the input vectors of the microbenchmarks, the
+random legal positions of the evaluation rows (:EVALUATION, search-bench.lisp) and those of the
+lookup rows of the transposition table (:TT-LOOKUP, stored, and :TT-MISS, not stored;
+search-variants-bench.lisp). The environment record prints them.")
 
 (defun input-seed (kind)
   "The seed of the input vector of KIND."

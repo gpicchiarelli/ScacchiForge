@@ -135,9 +135,14 @@ per quella finale.
 > legalità per maschere ([ADR-0015](adr/0015-generatore-di-mosse-del-livello-ottimizzato.md));
 > le magic bitboard del livello ottimizzato
 > ([ADR-0016](adr/0016-attacchi-dei-pezzi-a-lunga-gittata.md)); i microkernel nativi
-> ([ADR-0001](adr/0001-common-lisp-sbcl.md)). Le altre non sono decise. Dove la classe dipende
-> da ipotesi, le ipotesi sono scritte. Una classe marcata «provvisoria» aspetta la chiusura della
-> questione aperta indicata.
+> ([ADR-0001](adr/0001-common-lisp-sbcl.md)). Le altre non sono decise. Le righe di PVS e
+> NegaScout, della TT (bound, riuso di entry più profonde, politiche di sostituzione) e
+> dell'ordinamento nominano gli ADR in stato Proposta che le applicano al livello ottimizzato
+> ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md),
+> [ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md),
+> [ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md)): restano non decise. Dove la
+> classe dipende da ipotesi, le ipotesi sono scritte. Una classe marcata «provvisoria» aspetta la
+> chiusura della questione aperta indicata.
 
 ### Ricerca di base
 
@@ -145,9 +150,9 @@ per quella finale.
 |---|---|---|
 | Minimax, negamax | `THEOREM` per l'algoritmo | Negamax coincide con minimax se la valutazione è data dal punto di vista di chi muove. A profondità fissa il valore è il minimax dell'albero troncato con la valutazione alle foglie: approssima V(s), non è il valore teorico della partita. Sono la baseline: non riducono lavoro. |
 | Alpha-beta | `THEOREM` per l'algoritmo a finestra piena (−∞, +∞); `BOUNDED` con una finestra (α, β) | Restituisce il valore minimax (Knuth e Moore, 1975). Con finestra (α, β) un risultato strettamente interno è esatto; uno sul bordo o fuori è un bound. Un'implementazione eredita la classe solo con un test contro negamax (regola 8). |
-| Iterative deepening | `EXACT` | Senza TT né potature il valore dell'iterazione a profondità d non dipende dall'ordine delle mosse, quindi coincide con la ricerca diretta a profondità d. Con la TT valgono TT-1…TT-4. Quando fermarsi (tempo) è `HEURISTIC`. |
+| Iterative deepening | `EXACT` | Senza TT né potature il valore dell'iterazione a profondità d non dipende dall'ordine delle mosse, quindi coincide con la ricerca diretta a profondità d. Con la TT valgono TT-1…TT-4: nel livello ottimizzato, la TT in modalità di verifica ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md), Proposta). Quando fermarsi (tempo) è `HEURISTIC`. |
 | Ricerca a finestra nulla | `BOUNDED` | Un singolo risultato dice solo se il valore sta sopra o sotto la soglia. È `EXACT` solo dentro uno schema con ri-ricerca. |
-| PVS, NegaScout | `EXACT` | Quando la ricerca a finestra nulla restituisce α < v < β si ricerca con la finestra (α, β) del nodo; così si ottiene il valore di alpha-beta. Richiede punteggi interi; per il resto valgono le ipotesi di alpha-beta. |
+| PVS, NegaScout | `EXACT` (proposta per il livello ottimizzato: [ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md)) | Quando la ricerca a finestra nulla restituisce α < v < β si ricerca con la finestra (α, β) del nodo; così si ottiene il valore di alpha-beta. Richiede punteggi interi; per il resto valgono le ipotesi di alpha-beta. NegaScout nel livello ottimizzato ricerca con (v − 1, β), dove il valore cade strettamente dentro salvo che sia ≥ β, e non ricerca un risultato già esatto (un figlio foglia, o a profondità 1 che ha cercato le sue mosse e ha fallito in basso). La base è nel docstring di `search-node`. |
 | Finestre di aspirazione | `EXACT` con ri-ricerca | Se il risultato è ≤ α o ≥ β, cioè fuori dalla finestra o sul suo bordo, si ricerca con una finestra più larga; il valore finale è quello della ricerca a finestra piena (−∞, +∞). La larghezza è solo una questione di efficienza. |
 | MTD(f) | `EXACT` sotto TT-1…TT-4 | Sequenza di ricerche a finestra nulla che converge al valore minimax (Plaat e altri, 1996). Usa la TT per rimemorizzare i bound: eredita le sue ipotesi. |
 | SSS*, DUAL* | `THEOREM` per l'algoritmo originale; `EXACT` per l'implementazione sotto TT-1…TT-4 | La letteratura (Plaat e altri, 1996) li riformula come sequenze di ricerche a finestra nulla con TT. |
@@ -159,19 +164,21 @@ per quella finale.
 |---|---|---|
 | Zobrist: aggiornamento incrementale | `EXACT` (decisa: [ADR-0005](adr/0005-chiavi-zobrist-da-prng-deterministico.md)) | La chiave aggiornata deve essere uguale a quella ricalcolata (INV-C3). |
 | Zobrist: identificare una posizione dalla chiave | `PROBABILISTIC` (decisa: [ADR-0005](adr/0005-chiavi-zobrist-da-prng-deterministico.md)) | Per due posizioni che differiscono in almeno una caratteristica della chiave (pezzi, lato al tratto, diritti di arrocco, casa en passant disponibile secondo la politica della chiave), con chiavi indipendenti e uniformi su 64 bit, la probabilità che le chiavi coincidano è 2^-64. Le chiavi vengono da un generatore deterministico, quindi l'indipendenza è un modello. Due posizioni che differiscono solo negli orologi hanno la stessa chiave: è parte di TT-2. |
-| TT con bound `EXACT`, `LOWERBOUND`, `UPPERBOUND` | `BOUNDED`; `EXACT` sotto TT-1…TT-4 | La entry è un bound sul valore a quella profondità. Riusare entry più profonde o ignorare la storia esce da queste ipotesi. |
-| TT con riuso di entry più profonde | `HEURISTIC` sul valore a profondità fissa | Il valore restituito è quello di una ricerca più profonda, e dipende dal contenuto della tabella. È l'uso normale; la forza è `EMPIRICAL`. |
-| Politiche di sostituzione | `EXACT` sotto TT-1…TT-4; efficacia `EMPIRICAL` | Sotto queste ipotesi perdere una entry costa lavoro, non correttezza. Con la storia nel valore o con il riuso di entry più profonde, tenere o perdere una entry cambia anche il valore. |
-| Chiave parziale nella entry (compressione) | `PROBABILISTIC` | Meno bit confrontati, più falsi riscontri. Il rischio si calcola dal numero di bit confrontati. |
+| TT con bound `EXACT`, `LOWERBOUND`, `UPPERBOUND` | `BOUNDED`; `EXACT` sotto TT-1…TT-4 (proposta per il livello ottimizzato, modalità di verifica: [ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md)) | La entry è un bound sul valore a quella profondità. Riusare entry più profonde o ignorare la storia esce da queste ipotesi. Nel livello ottimizzato la modalità di verifica usa per un taglio solo entry della profondità del nodo (TT-1), e un controllo indipendente della posizione in ogni slot scarta e conta i falsi riscontri (TT-3). |
+| TT con riuso di entry più profonde | `HEURISTIC` sul valore a profondità fissa (proposta per il livello ottimizzato, modalità normale: [ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md)) | Il valore restituito è quello di una ricerca più profonda, e dipende dal contenuto della tabella. È l'uso normale; la forza è `EMPIRICAL`. |
+| Politiche di sostituzione | `EXACT` sotto TT-1…TT-4; efficacia `EMPIRICAL` (proposta per `:always`, `:depth-preferred` e `:two-slot`: [ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md)) | Sotto queste ipotesi perdere una entry costa lavoro, non correttezza. Con la storia nel valore o con il riuso di entry più profonde, tenere o perdere una entry cambia anche il valore. |
+| Chiave parziale nella entry (compressione) | `PROBABILISTIC` | Meno bit confrontati, più falsi riscontri. Il rischio si calcola dal numero di bit confrontati. Il livello ottimizzato confronta la chiave intera ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md)). |
 
 ### Ordinamento delle mosse
 
 | Tecnica | Classe | Motivo e ipotesi |
 |---|---|---|
-| Mossa TT, mossa PV, killer, history, countermove, continuation history, ordinamento per SEE | `EXACT` sul valore di alpha-beta puro; efficacia `EMPIRICAL` | L'ordine non cambia il valore di alpha-beta senza potature. Cambia il valore se una riduzione o una potatura dipende dall'indice di mossa (LMR): da lì l'ordine fa parte del modello e la classe è quella della riduzione. |
+| Mossa TT, mossa PV, killer, history, countermove, continuation history, ordinamento per SEE | `EXACT` sul valore di alpha-beta puro; efficacia `EMPIRICAL` (proposta per mossa TT, mossa PV, catture MVV/LVA e promozioni nel livello ottimizzato: [ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md)) | L'ordine non cambia il valore di alpha-beta senza potature. Cambia il valore se una riduzione o una potatura dipende dall'indice di mossa (LMR): da lì l'ordine fa parte del modello e la classe è quella della riduzione. |
 
 La mossa presa da una tabella (TT, killer, countermove) va controllata come legale nella posizione
-corrente prima dell'uso (INV-C6).
+corrente prima dell'uso (INV-C6). Nel livello ottimizzato la mossa TT prende posto solo se è fra le
+mosse legali che il generatore ha scritto per il nodo, e una che non c'è si conta come scartata
+([ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md)).
 
 ### Potature, riduzioni, estensioni
 

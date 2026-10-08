@@ -17,7 +17,7 @@
   <a href="docs/adr/0001-common-lisp-sbcl.md"><img src="https://img.shields.io/badge/language-Common%20Lisp-8e8e93?style=flat-square&labelColor=3a3a3c" alt="Language: Common Lisp"></a>
   <a href="https://www.sbcl.org/"><img src="https://img.shields.io/badge/runtime-SBCL-8e8e93?style=flat-square&labelColor=3a3a3c" alt="Runtime: SBCL"></a>
   <a href="docs/adr/0004-nessuna-dipendenza-esterna-e-harness-proprio.md"><img src="https://img.shields.io/badge/dependencies-none-8e8e93?style=flat-square&labelColor=3a3a3c" alt="Dependencies: none"></a>
-  <a href="docs/roadmap.md"><img src="https://img.shields.io/badge/phase-2%20%C2%B7%20gate%20not%20closed-c9892f?style=flat-square&labelColor=3a3a3c" alt="Phase 2: gate not closed"></a>
+  <a href="docs/roadmap.md"><img src="https://img.shields.io/badge/phase-3%20%C2%B7%20gate%20not%20closed-c9892f?style=flat-square&labelColor=3a3a3c" alt="Phase 3: gate not closed"></a>
 </p>
 
 <p align="center">
@@ -80,14 +80,16 @@ is not a playable engine yet: there is no game loop and no UCI. See [Status](#st
 </p>
 
 The picture is the process the project requires of every change. It does not say that a gate
-passes. Today the OPTIMIZED side has a move generator, a classical evaluation and baseline
-searches of its own, and two gates judge them: perft, against the same expected counts as the
-reference, and the differential test, against the reference itself, which now compares the
-evaluation term by term and the value of a search at fixed depth. The benchmark gate has
-microbenchmarks, perft rows and two groups of rows of an engine benchmark: search nodes per CPU
-second at fixed depth, on five positions, and the cost of one evaluation call, measured three
-ways. There is no self-play: there is no game loop, and no game has been played. What runs
-where is under [Verification](#verification).
+passes. Today the OPTIMIZED side has a move generator, a classical evaluation, baseline searches
+and the searches of Phase 3 (a transposition table, move ordering, PVS and NegaScout) of its own,
+and two gates judge them: perft, against the same expected counts as the reference, and the
+differential test, against the reference itself, which now compares the evaluation term by term
+and the value of a search at fixed depth. The benchmark gate has microbenchmarks, perft rows and
+three groups of rows of an engine benchmark: search nodes per CPU second at fixed depth, on five
+positions; the cost of one evaluation call, measured three ways; and the searches of Phase 3,
+with and without ordering and transposition table, with the ordering's efficiency, the table's
+hit rate and the cost of a lookup. There is no self-play: there is no game loop, and no game has
+been played. What runs where is under [Verification](#verification).
 
 ```
 src/
@@ -104,7 +106,9 @@ src/
                  pin masks, perft; the classical evaluation, with material, piece-square
                  tables and game phase kept incrementally by make/unmake; the colour swap;
                  negamax, alpha-beta and iterative deepening at fixed depth, with a
-                 preallocated context. No move ordering, transposition table or quiescence
+                 preallocated context; a transposition table with a verification mode, a
+                 move ordering, PVS and NegaScout with PV, Cut and All node types counted.
+                 No quiescence, killer moves, history or pruning beyond alpha-beta
 ```
 
 The reference never depends on the optimized level. The optimized level uses the reference
@@ -114,7 +118,7 @@ comparison judges them. `core` holds definitions only, because a mistake shared 
 is invisible to a comparison between them. These rules are decided
 ([ADR-0010](docs/adr/0010-regole-di-indipendenza-tra-i-livelli.md)), described in
 [architettura.md](docs/architettura.md#regole-tra-i-livelli). The design of the optimized level
-is recorded in three more accepted records and one proposal, listed under
+is recorded in four more accepted records and three proposals, listed under
 [Decisions](#decisions). The seven separations the specification itself asks for are in
 [the same document](docs/architettura.md#sette-separazioni).
 
@@ -142,11 +146,13 @@ when an accepted record decides it. Seven rows carry a decision so far, two of t
 part: the two Zobrist rows (0005); legal generation and make/unmake, decided for the optimized
 level, the attack tables, decided for its precomputed tables and not for PEXT, and the legality
 filter by masks (0015); the magic bitboards of the optimized level (0016); native microkernels
-(0001). No tool checks that a tag is present; review does.
+(0001). The rows of the transposition table, PVS and NegaScout and move ordering name the
+proposals that apply them to the optimized level (0021 to 0023): they are not decided. No tool
+checks that a tag is present; review does.
 
 ## Decisions
 
-Twenty records so far, all accepted. *Accepted*
+Twenty-three records so far: twenty accepted, three proposals. *Accepted*
 means the record states the specification or the author's own choice. Six were accepted when
 they were written (0001 to 0003, 0006 to 0008); the parts of them that were only proposals later
 moved to 0010 to 0013. Ten were proposals of this repository until the author accepted them
@@ -156,7 +162,9 @@ hold the design of the optimized level. Two, 0018 and 0019, hold the definition 
 classical evaluation of Phase 2 and how the optimized level implements it and searches; the
 author accepted them on 2026-10-07, once the pawn-structure weights were replaced by a written
 rule, as decided for [QA-18](docs/limiti-e-rischi.md#qa-18). One, 0020, records the author's
-decision that INV-X7 applies to the evaluation parameters from Phase 10.
+decision that INV-X7 applies to the evaluation parameters from Phase 10. Three, 0021 to 0023,
+are proposals of this repository for Phase 3, written with the code they describe; they bind
+nothing until the author accepts them.
 
 | Topic | Decision | Status | Record |
 |---|---|---|---|
@@ -180,6 +188,9 @@ decision that INV-X7 applies to the evaluation parameters from Phase 10.
 | Classical evaluation | One exact integer definition of the nine terms the specification names, written in [valutazione.md](docs/valutazione.md) so that the reference and the optimized level can each implement it and give the same score: a game phase from the non-pawn material, a middlegame/endgame blend rounded toward zero so that swapping the colours negates the score exactly, the score from White's side returned from the side to move, material and piece-square tables kept incrementally in the optimized level. No weight is tuned by this repository: none is fitted to data, chosen by a recorded measurement or validated by an experiment here. Most follow from simple stated rules; the six pawn-structure weights are fixed by a written rule, one unit for each support a pawn lacks, chosen by the author to replace earlier weights of which five equalled constants of Fruit 2.1 ([QA-18](docs/limiti-e-rischi.md#qa-18)). The other known matches with published engines are listed in [valutazione.md](docs/valutazione.md#provenienza). Implemented in both levels. | Accepted | [0018](docs/adr/0018-definizione-della-valutazione-classica.md) |
 | Optimized evaluation and search | The optimized level keeps its own copy of the evaluation parameters and builds its tables from the formulas; unmake reads the incremental state back from the undo stack. Negamax, alpha-beta and iterative deepening at fixed depth, with a preallocated context and a triangular table of principal variations. Compared with the reference: the value of a search and the node count of negamax, not the best move or alpha-beta's node count, which depend on the order of the moves. The first search signature, in `tests/search-signature.sexp`, written only by `make signatures`. States two departures from decided invariants: INV-X7, the parameters are code, settled by 0020 ([QA-19](docs/limiti-e-rischi.md#qa-19)), and INV-X3, the incremental state has its equivalence test but not the measurement 0017 asks for ([EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md)). | Accepted | [0019](docs/adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md) |
 | Evaluation parameters | The evaluation parameters stay constants in the code of both levels until Phase 10, when tuning needs them as data; that phase's gate decides the form, measuring its cost. Until then a weight changes in one commit: the definition with its worked examples, both copies, the expected test values and the search signature. Closes [QA-19](docs/limiti-e-rischi.md#qa-19). | Accepted | [0020](docs/adr/0020-parametri-della-valutazione-dalla-fase-10.md) |
+| Transposition table | The optimized level's own table: compact 16-byte entries in typed arrays, the full 64-bit key compared on every probe, size, replacement policy (always, depth-preferred, two slots per bucket) and mode as arguments. A verification mode for tests, never for play, meets TT-1 to TT-4: cutoffs only on entries of the node's depth, scores stored relative to the node, an independent check of the position in every slot, false hits discarded and counted. A move read from the table is used only if it is among the node's legal moves. Proposed defaults for [QA-01](docs/limiti-e-rischi.md#qa-01) and [QA-02](docs/limiti-e-rischi.md#qa-02) (no repetition or fifty-move rule in the search, so no stored score depends on the path), which stay open. | Proposed | [0021](docs/adr/0021-transposition-table-del-livello-ottimizzato.md) |
+| PVS, NegaScout, node types | PVS and NegaScout as window schemes of a Phase 3 node beside the unchanged baselines; NegaScout re-searches from one below the null-window result and does not re-search a result that is already exact. PV, Cut and All node types expected before a node is searched and observed after, counted. The default search of Phase 3: iterative deepening of PVS with ordering and a table. The search signature, format 2, records the baseline alpha-beta and that default search with its table in verification mode. | Proposed | [0022](docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md) |
+| Move ordering | The TT move, the previous iteration's PV move, captures by most valuable victim and least valuable attacker, promotions, the rest; a stable insertion sort with no allocation. No killer moves, history or exchange evaluation (Phase 4). | Proposed | [0023](docs/adr/0023-ordinamento-delle-mosse-della-fase-3.md) |
 
 The whole log is in [docs/adr/](docs/adr/README.md). What is not known yet is kept as sixteen
 open questions in [limiti-e-rischi.md](docs/limiti-e-rischi.md#questioni-aperte), each with the
@@ -195,14 +206,15 @@ reference, and the reference judges the optimized engine. What exists today:
 | | What it judges | Today |
 |---|---|---|
 | Perft | Move generation and make/unmake, by leaf count, against published values where they exist | Exists for both levels, which read their expected counts from the same tables. Seven well-known positions, and edge cases: pins, en passant, castling, promotion, discovered check. `make test` runs the standard depths and `make perft-deep` runs deeper ones, on both levels. For the six positions of the Chess Programming Wiki's *Perft Results* page, every count, the deep ones included, is the wiki's. The promotion position and its six counts, and the castling position with all four rights and its four counts, come from the file `src/perft/standard.epd` of the Ethereal engine. Each other edge case has one published count, from Peter Ellis Jones's list of perft test positions. Every other count of the edge cases is this engine's own output, recorded as a regression value: no published source confirms it. The header of `tests/test-perft.lisp` names the sources, the date they were read and the published depths of each position. |
-| Differential testing | The optimized level against the reference | Exists for move generation, make/unmake, keys, the evaluation and the value of a search. On every position visited: the sorted sets of legal and of pseudo-legal moves, check, the attacked squares and the checking pieces. After every move made on both levels: the whole state, and the optimized level's incremental key against its own key computed from scratch and against the reference's key; the incremental evaluation state against its recomputation. After unmake: the exact state before. The positions come from the perft tables, the special cases and their children, seeded random games that both levels play move for move, and random positions compared by perft. Tens of thousands of positions per `make test`; more than two and a half million per `make differential-deep`. The special-case suite runs on both levels, and the conversion between the two representations is compared as well. The evaluation is compared term by term and colour by colour, with the score of both optimized evaluations (incremental and from scratch), on the same kinds of positions and on seeded random legal positions. The value of alpha-beta and of negamax of the optimized level is compared with the reference's at fixed depth, and so is negamax's node count; the best move, the principal variation and alpha-beta's node count are not compared with the reference's, because the two generators order the moves differently. Instead the reference replays principal variations of the optimized level through its own position, with its own legality: every move must be legal, and the line must end at the search depth in the position whose classical evaluation by the reference, seen from the root, is the score, or in checkmate at the ply a mate score states, or earlier in stalemate with the score 0. `make test` replays the variations of the optimized searches on the search positions (alpha-beta at depths 0 to 4 and negamax at depths 0 to 3, in generation order and permuted by the seeds of the move-order test), of alpha-beta at depth 4 on the twelve positions of the search signature, of iterative deepening on four positions with a forced mate (Search, below), of the comparison with the reference (the search positions to depth 3, 40 seeded random positions at depth 2) and of alpha-beta at depth 3 on 40 other seeded random positions. `make differential-deep` replays those of the comparison to depth 4 and on 400 random positions at depth 3, and those of alpha-beta at depth 5 on 200 random positions; it also searches the twelve signature positions with the reference at depth 4 (Search regression, below). |
+| Differential testing | The optimized level against the reference | Exists for move generation, make/unmake, keys, the evaluation and the value of a search. On every position visited: the sorted sets of legal and of pseudo-legal moves, check, the attacked squares and the checking pieces. After every move made on both levels: the whole state, and the optimized level's incremental key against its own key computed from scratch and against the reference's key; the incremental evaluation state against its recomputation. After unmake: the exact state before. The positions come from the perft tables, the special cases and their children, seeded random games that both levels play move for move, and random positions compared by perft. Tens of thousands of positions per `make test`; more than two and a half million per `make differential-deep`. The special-case suite runs on both levels, and the conversion between the two representations is compared as well. The evaluation is compared term by term and colour by colour, with the score of both optimized evaluations (incremental and from scratch), on the same kinds of positions and on seeded random legal positions. The value of alpha-beta, of negamax and of the default search of Phase 3 (its table in verification mode) of the optimized level is compared with the reference's at fixed depth, and so is negamax's node count; the best move, the principal variation and alpha-beta's node count are not compared with the reference's, because the two generators order the moves differently. Instead the reference replays principal variations of the optimized level through its own position, with its own legality: every move must be legal, and the line must end at the search depth in the position whose classical evaluation by the reference, seen from the root, is the score, or in checkmate at the ply a mate score states, or earlier in stalemate with the score 0. `make test` replays the variations of the optimized searches on the search positions (alpha-beta at depths 0 to 4 and negamax at depths 0 to 3, in generation order and permuted by the seeds of the move-order test), of alpha-beta at depth 4 on the twelve positions of the search signature, of iterative deepening on four positions with a forced mate (Search, below), of the comparison with the reference (the search positions to depth 3, 40 seeded random positions at depth 2, for alpha-beta, negamax and the default search of Phase 3) and of alpha-beta at depth 3 on 40 other seeded random positions. `make differential-deep` replays those of the comparison to depth 4 and on 400 random positions at depth 3, and those of alpha-beta at depth 5 on 200 random positions; it also searches the twelve signature positions with the reference at depth 4 (Search regression, below). |
 | Evaluation | The classical evaluation against its [written definition](docs/valutazione.md) | Exists on both levels. The worked examples of the definition and positions computed by hand, term by term; the printed piece-square tables, square by square; parameters against the rules that give them. On the positions of the mirror suite: swapping the colours negates the score from White's side, term by term (INV-C7), and the score stays within its limit (INV-C9). The expected values come from the definition, not from a published source: a failing test says that the code and the document disagree, not which one is wrong. |
-| Search | The baseline searches, against properties they must have | Exists on both levels. At fixed depth alpha-beta and negamax give the same value and, searching the moves in the same order, the same best move and principal variation; alpha-beta's value does not change when the moves of every node are permuted by seeded generators; iterative deepening gives at each depth the result of the direct search. The principal variations of these searches are replayed on a copy of the reference position, with the reference's legality, and must lead to the score as the differential row says. On the search positions: on the reference, alpha-beta and negamax at depths 0 to 3 (negamax to depth 2 with the classical evaluation on the four largest trees), with both evaluations, and the permuted searches (alpha-beta at depths 1 to 3, negamax at 1 and 2); on the optimized level, alpha-beta at depths 0 to 4 and negamax at depths 0 to 3, in generation order and permuted (alpha-beta with each seed, negamax with the first), and alpha-beta at depth 4 on the twelve positions of the search signature. On both levels, also the direct search and the last iteration of iterative deepening on four positions with a forced mate, to depth 5 (`make test`, tests `principal-variation-leads-to-the-score`, `alpha-beta-value-does-not-depend-on-the-move-order` and `iterative-deepening-mate-stop-equals-the-full-depth-search` of suites `search` and `optimized-search`). A test plants false variations of each kind and checks that they are refused. |
+| Search | The baseline searches, against properties they must have | Exists on both levels. At fixed depth alpha-beta and negamax give the same value and, searching the moves in the same order, the same best move and principal variation; alpha-beta's value does not change when the moves of every node are permuted by seeded generators; iterative deepening gives at each depth the result of the direct search. The principal variations of these searches are replayed on a copy of the reference position, with the reference's legality, and must lead to the score as the differential row says. On the search positions: on the reference, alpha-beta and negamax at depths 0 to 3 (negamax to depth 2 with the classical evaluation on the four largest trees), with both evaluations, and the permuted searches (alpha-beta at depths 1 to 3, negamax at 1 and 2); on the optimized level, alpha-beta at depths 0 to 4 and negamax at depths 0 to 3, in generation order and permuted (alpha-beta with each seed, negamax with the first), and alpha-beta at depth 4 on the twelve positions of the search signature. On both levels, also the direct search and the last iteration of iterative deepening on four positions with a forced mate, to depth 5 (`make test`, tests `principal-variation-leads-to-the-score`, `alpha-beta-value-does-not-depend-on-the-move-order` and `iterative-deepening-mate-stop-equals-the-full-depth-search` of suites `search` and `optimized-search`). A test plants false variations of each kind and checks that they are refused. The searches of Phase 3, on the optimized level (suite `optimized-pvs`): the Phase 3 node run as plain alpha-beta returns what the baseline returns, value, best move, node count and variation; PVS and NegaScout, with and without the move ordering, and ordered alpha-beta, each without a table and with one in verification mode, return the baseline's value on the search positions to depth 4, on 40 seeded random positions at depth 3 and with the moves permuted by each seed, and the reference replays every variation; the ordering is the one its rule gives, recomputed by the test from the reference's board, with the TT move first and the PV move second when they are legal; the node-type counts add up to the nodes; with a perfect ordering, a test hook that sorts every node's moves by their negamax value, the three searches visit exactly the minimal tree of Knuth and Moore, counted independently, and every node has the type it was expected to have. |
+| Transposition table | The optimized level's table, against the search without it | Exists (suite `optimized-tt`). In verification mode the search with the table returns exactly the value of the search without it: alpha-beta, PVS and NegaScout, with and without ordering, on the search positions to depth 4, 30 seeded random positions at depth 3 and the signature positions, with tables of 65536 slots, and of 2 to 4096 slots with each replacement policy, where entries are replaced all the time; the reference replays the variations. Every entry an iterative deepening leaves within two plies of the root is a true bound of its position's value at its depth, mate scores included. A key mask of 8 or 4 bits forces false hits: discarded and counted in verification mode; in normal mode the moves of other positions are rejected, never played, and no search ends in an error. Entries altered by hand are rejected. A position reached by two paths has one key and one value. |
 | Fuzzing | Invariants on random legal positions | Exists for the reference, and feeds the differential test. Seeded random playouts, invariants checked after every move, every move taken back at the end. On the order of a hundred thousand positions per `make test`. |
 | Unit tests | One function or one state transition | Exist, on a small harness of the repository's own. On the optimized level: attack tables against board geometry; each slider implementation against a square-by-square walk, on every relevant occupancy of every square; the committed magic numbers against a new search from their seed; make/unmake edge cases; move buffer bounds. |
-| Allocation and declarations | The optimized hot path | Exists. After a warm-up, perft must allocate at most 1 MiB over more than a million moves, and so must more than 800000 evaluations and searches that visit more than a million nodes (`make test`). The three tests print 0 bytes on the author's machine and, for commits cc6fceb and b3190dc, in the CI on both images; the perft test did the same for 5d25099, c15291e and 0408743. `make test-checked` runs every suite with each type declaration of the hot path checked. `make hot-path` prints SBCL's efficiency notes and what the disassembly of each per-node function of perft and of the search, and of the evaluation, calls or allocates. |
+| Allocation and declarations | The optimized hot path | Exists. After a warm-up, perft must allocate at most 1 MiB over more than a million moves, and so must more than 800000 evaluations, baseline searches that visit more than a million nodes, and searches of Phase 3 with a preallocated table that visit more than a million nodes (`make test`). The first three tests print 0 bytes on the author's machine and, for commits cc6fceb and b3190dc, in the CI on both images; the perft test did the same for 5d25099, c15291e and 0408743. The fourth, new with Phase 3, has run on the author's machine only, where it printed 0 bytes over 1791332 nodes. `make test-checked` runs every suite with each type declaration of the hot path checked. `make hot-path` prints SBCL's efficiency notes and what the disassembly of each per-node function of perft and of the searches, of the evaluation, of the move ordering and of the table's probe and store calls or allocates. |
 | Cross-platform regression | The same results on every platform | Partial. The tests hold fixed expected values: perft counts, generator sequences, Zobrist keys, magic numbers, evaluation scores, the search signature. The CI runs them on Ubuntu x86-64 and on macOS arm64; the runs are listed under [Status](#status). The first that includes the optimized move generator is 37180782566, on 5d25099: on both images its perft counts, the differential test and a new search of the magic numbers from their seed gave the expected values. Runs 37183294754, on c15291e, and 37193831706, on 0408743, gave the same on both images. The first with Phase 2 code is 37198250566, on cc6fceb: on both images every test gave its expected values, the evaluation scores and the search signature among them. Run 37215795264, on b3190dc, gave the same on both images. The deep perft and differential runs have not run in the CI. Never run on FreeBSD, macOS Intel or ARM64 Linux. |
-| Search regression | The search signature: value, best move, node count and principal variation at fixed depth, one thread | The first signature exists: [`tests/search-signature.sexp`](tests/search-signature.sexp), alpha-beta of the optimized level at depth 4 on twelve positions, with a header that records its provenance. `make test` recomputes it (test `optimized-search/search-signature-is-reproduced`); only `make signatures` writes it. It is a regression value of this engine, not an oracle: it says that a search changed, not which result is right. The reference judges it (test `differential/search-signature-is-judged-by-the-reference`): `make test` replays each recorded principal variation through the reference, which must find its moves legal and its end at the recorded value; `make differential-deep` also searches each of the twelve positions with the reference's alpha-beta at depth 4, whose value must be the recorded one and the optimized level's, searched again. `make test` does not run that search of the reference. An `[EXACT]` change must leave it identical ([verifica.md](docs/verifica.md#regressione-di-ricerca)). |
+| Search regression | The search signature: value, best move, node count and principal variation at fixed depth, one thread | The signature exists: [`tests/search-signature.sexp`](tests/search-signature.sexp), alpha-beta of the optimized level at depth 4 on twelve positions, unchanged since Phase 2, and, since format 2, the default search of Phase 3 on the same positions with its table in verification mode, whose values must equal alpha-beta's ([0022](docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md), proposed); a header records its provenance. `make test` recomputes it (test `optimized-search/search-signature-is-reproduced`); only `make signatures` writes it. It is a regression value of this engine, not an oracle: it says that a search changed, not which result is right. The reference judges it (test `differential/search-signature-is-judged-by-the-reference`): `make test` replays each recorded principal variation of both searches through the reference, which must find its moves legal and its end at the recorded value; `make differential-deep` also searches each of the twelve positions with the reference's alpha-beta at depth 4, whose value must be the two recorded ones and those of the optimized level's two searches, searched again. `make test` does not run that search of the reference. An `[EXACT]` change must leave it identical ([verifica.md](docs/verifica.md#regressione-di-ricerca)). |
 | NNUE and benchmark regression | | Not started. |
 
 Perft says nothing about playing strength, and neither do the evaluation and search tests: they
@@ -232,8 +244,10 @@ proposed in [misure.md](docs/misure.md#gerarchia-delle-metriche).
 
 Today `make bench` prints an environment record, then perft leaf nodes per CPU second, for the
 reference and for the optimized level compiled with each implementation of its slider attacks,
-then two groups of rows of an engine benchmark, one for the search and one for the evaluation,
-then the nanoseconds per operation of the bit utilities and of the slider attacks. Each perft
+then groups of rows of an engine benchmark, for the search, the evaluation, the two variants of
+the evaluation state and the searches of Phase 3, then the cost of a lookup in the
+transposition table, then the nanoseconds per operation of the bit utilities and of the slider
+attacks. Each perft
 sample repeats its call for about half a second of CPU. The optimized perft rows run in two
 passes per implementation, in the order `fixed-magic magic ray ray magic fixed-magic`, and a
 table gives each pass, so that a drift of the machine shows. The five search rows time
@@ -243,14 +257,28 @@ and the node count the signature records, or no figure is printed. The three eva
 give the nanoseconds per call of the optimized evaluation, with its incremental state and from
 scratch, and of the reference's, on the same seeded random positions, after checking that the
 three give the same sum of scores; they run in passes in the order A B C C B A, and the median
-of each pass is printed. The tables are in CPU time and give the bytes allocated and the
+of each pass is printed. The rows of the searches of Phase 3 run iterative deepening to the
+depth of the signature on three of its positions with eleven configurations: the baseline
+alpha-beta; alpha-beta, PVS and NegaScout with the move ordering; PVS with transposition tables
+of 2^10, 2^16 and 2^20 slots and with each replacement policy, in normal mode, and in
+verification mode (the default search as the signature records it); PVS with a table and no
+ordering. Each call starts from a cleared table, and is checked: the value against the
+signature wherever the configuration guarantees it, the node count against the first call of
+its row and, for the default search, against the signature. They give nodes, CPU time per
+search in two passes, nodes per CPU second, the share of beta cutoffs made by the first move,
+cutoffs over the nodes that could cut, re-searches, the share of nodes of the expected type,
+and the table's hit rate and cutoffs. The lookup rows give the nanoseconds of a store, of a
+probe that finds and of one that misses, for several sizes and policies, on seeded random
+positions. Which configuration is better the rows do not say, and more memory is not assumed
+to do better. The tables are in CPU time and give the bytes allocated and the
 garbage-collection time of each row. The wall-clock time is printed only beside the perft rows
 and for the whole run. The record holds the date, the exact command, the source revision and
 whether the working tree was clean, the SBCL version, the machine, the optimization policy of
 the build, the seeds and the load average; the last lines give the load average at the end.
 Perft rows are microbenchmarks of move generation and make/unmake taken together, not the nodes
-per second of a search. The search rows are of baseline searches with no move ordering,
-transposition table or quiescence. There is no self-play and no measure of strength. The
+per second of a search. The first search rows are of baseline searches with no move ordering,
+transposition table or quiescence; no search has quiescence. There is no self-play and no
+measure of strength. The
 figures it prints are measurements of one machine at one moment.
 
 The timings that `make bench` prints are not copied into this repository; where to keep its
@@ -290,19 +318,47 @@ a target or an estimate.
 
 [![CI](https://github.com/gpicchiarelli/ScacchiForge/actions/workflows/ci.yml/badge.svg)](https://github.com/gpicchiarelli/ScacchiForge/actions/workflows/ci.yml)
 
-**Phase 2 — current, by the author's decision of 2026-10-04; gate not closed.** On that date the
-author decided to proceed to [Phase 2](docs/roadmap.md#fase-2): negamax, alpha-beta, iterative
-deepening and a classical evaluation, in the optimized engine. The code exists in both levels:
-the classical evaluation that [valutazione.md](docs/valutazione.md) defines
+**Phase 3 — current, by the author's decision of 2026-10-08; gate not closed.** On that date
+the author decided to proceed to [Phase 3](docs/roadmap.md#fase-3): Zobrist keys, a
+transposition table, PVS and NegaScout, move ordering. The code exists in the optimized level:
+a transposition table with a normal mode and a verification mode
+([0021](docs/adr/0021-transposition-table-del-livello-ottimizzato.md)), PVS and NegaScout with
+PV, Cut and All node types expected and observed, the default search of Phase 3 and a second
+part of the search signature ([0022](docs/adr/0022-pvs-negascout-e-tipi-di-nodo.md)), and the
+move ordering of Phase 3 ([0023](docs/adr/0023-ordinamento-delle-mosse-della-fase-3.md)); the
+three records are proposals. Each item of the gate that the roadmap proposes has a command that
+shows it, and each of those commands has exited 0 on the author's machine (Apple M4, macOS
+arm64, SBCL 2.6.9). The CI has not run the Phase 3 code.
+
+| Item of the Phase 3 gate | Command |
+|---|---|
+| The incremental key equals the recomputed one (INV-C3); the keys come from the deterministic generator ([0005](docs/adr/0005-chiavi-zobrist-da-prng-deterministico.md)) | `make test` (suites `zobrist` and `differential`) and `make differential-deep`, as since Phase 1 |
+| In verification mode, which meets TT-1 to TT-4, the search with the table returns the value of the search without it; false hits are discarded and counted; the TT move is checked as legal (INV-C5, INV-C6). The GHI positions show the option chosen for [QA-02](docs/limiti-e-rischi.md#qa-02) | `make test` (suite `optimized-tt`: `verification-mode-equals-the-search-without-table`, `tiny-tables-force-replacement`, `forced-false-hits-are-discarded-and-counted`, `false-hits-in-normal-mode-never-play-an-illegal-move`, `altered-entries-never-play-an-illegal-move`, `one-position-by-two-paths-has-one-key-and-one-value`) |
+| PVS and NegaScout return the value of alpha-beta | `make test` (suite `optimized-pvs`, test `pvs-and-negascout-return-the-alpha-beta-value`; with the table, the tests of suite `optimized-tt`; the default search against the reference, test `differential/search-values-equal-the-reference`) and `make differential-deep` |
+| The node type (PV, Cut, All) is explicit and recorded: expected before the node is searched, observed after | `make test` (suite `optimized-pvs`, tests `node-type-counts-hold` and `perfect-ordering-searches-the-minimal-tree`) |
+| Hit rate, lookup cost, several sizes and replacement policies, and the ordering's efficiency apart, are measured; more memory is not assumed to do better | `make bench` (the rows of the searches of Phase 3 and the lookup rows); measurements of one machine, not copied here |
+
+The gate is not declared closed. What is still open:
+
+| Item | Now |
+|---|---|
+| **The rules every gate adds** ([verifica.md](docs/verifica.md#gate-di-fase)) | Checked by review, not by a command. No review of the Phase 3 work by the author is recorded. |
+| **0021, 0022 and 0023** | Proposals: the author has not accepted them. |
+| **A departure from INV-X3**, a decided invariant | The table, PVS and NegaScout and the ordering change the node count of a search, an output, so the whole research method applies, self-play and statistical validation included. There is no game loop and no self-play yet (Phase 10). Their record, [EXP-0003](research/exp-0003-ricerca-della-fase-3.md), is proposed. |
+| **[QA-01](docs/limiti-e-rischi.md#qa-01) and [QA-02](docs/limiti-e-rischi.md#qa-02)** | Open. 0021 proposes the defaults the code applies: the full key compared, the TT move checked, an independent check in verification mode; no repetition or fifty-move rule in the search. |
+| **The CI** | `make check` has not run on the Phase 3 code in the CI. |
+
+**Phase 2 — closed by the author's decision of 2026-10-08 to proceed to Phase 3.** Phase 2
+added negamax, alpha-beta, iterative deepening and a classical evaluation to the optimized
+engine: the classical evaluation that [valutazione.md](docs/valutazione.md) defines
 ([0018](docs/adr/0018-definizione-della-valutazione-classica.md), accepted), the reference's
 searches with their principal variation, and the optimized level's evaluation, with its
 incremental state, and baseline searches
-([0019](docs/adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md), accepted). Commit
-cc6fceb is a checkpoint of that work, and commit b3190dc carries the changes made after it. Each
-of the five items of the gate that the roadmap proposes has a command that shows it, and each of
-those commands has exited 0 on the author's machine (Apple M4, macOS arm64, SBCL 2.6.9).
-`make check`, which runs `make test`, also passed in the CI on both commits, on both images
-(runs [37198250566](https://github.com/gpicchiarelli/ScacchiForge/actions/runs/37198250566) and
+([0019](docs/adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md), accepted). Each of the
+five items of its gate has a command that shows it, and each of those commands has exited 0 on
+the author's machine. `make check`, which runs `make test`, also passed in the CI on commits
+cc6fceb and b3190dc, on both images (runs
+[37198250566](https://github.com/gpicchiarelli/ScacchiForge/actions/runs/37198250566) and
 [37215795264](https://github.com/gpicchiarelli/ScacchiForge/actions/runs/37215795264)).
 
 | Item of the Phase 2 gate | Command |
@@ -311,31 +367,24 @@ those commands has exited 0 on the author's machine (Apple M4, macOS arm64, SBCL
 | Alpha-beta and plain negamax return the same value at fixed depth on a set of positions, and the value does not change when the moves are permuted with a seed | `make test` (tests `alpha-beta-equals-negamax-up-to-depth-three` and `alpha-beta-value-does-not-depend-on-the-move-order`, in suites `search` on the reference and `optimized-search` on the optimized level) |
 | Iterative deepening at depth `d` returns the same value as the direct search | `make test` (test `iterative-deepening-equals-the-direct-search-at-every-depth`, in the same two suites) |
 | Every incremental term of the evaluation equals its recomputation (INV-C3), and the evaluation is invariant under colour swap, seen from the side to move | `make test` (tests `differential/evaluation-in-lockstep-playouts`, `optimized-evaluation/make-and-unmake-keep-the-evaluation-state`, and `colour-swap-negates-the-white-score` in suites `evaluation` and `optimized-evaluation`) and `make differential-deep` |
-| The first search signature is recorded | [`tests/search-signature.sexp`](tests/search-signature.sexp), rewritten by `make signatures` when the pawn-structure weights changed (QA-18), and `make test` (test `optimized-search/search-signature-is-reproduced`) |
-
-The gate is not declared closed. What is still open:
+| The first search signature is recorded | [`tests/search-signature.sexp`](tests/search-signature.sexp), its alpha-beta part unchanged by Phase 3, and `make test` (test `optimized-search/search-signature-is-reproduced`) |
 
 | Item | Now |
 |---|---|
-| **The rules every gate adds** ([verifica.md](docs/verifica.md#gate-di-fase)): every reduction of work carries its tag, a new rule is in the invariants, the documentation is up to date | Checked by review, not by a command. No review of the Phase 2 work by the author is recorded. |
+| **The rules every gate adds** ([verifica.md](docs/verifica.md#gate-di-fase)): every reduction of work carries its tag, a new rule is in the invariants, the documentation is up to date | **Not met: superseded** by the author's decision of 2026-10-08 to proceed to Phase 3, as for Phase 1. No review of the Phase 2 work by the author is recorded. |
 
-The incremental evaluation state now has the measurement 0017 asks for:
-[EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md), with its rule written before the run,
-measured on a clean clone of commit dd5a2a5, is accepted. Three more items that kept the gate
-open are settled by the author's decisions: 0018 and 0019 are
-accepted; the six pawn-structure weights, five of which equalled constants of Fruit 2.1, are
-replaced by weights a written rule fixes ([QA-18](docs/limiti-e-rischi.md#qa-18)); and INV-X7
+The other items that had kept the gate open were settled before that decision: 0018 and 0019
+were accepted; the six pawn-structure weights, five of which equalled constants of Fruit 2.1,
+were replaced by weights a written rule fixes ([QA-18](docs/limiti-e-rischi.md#qa-18)); INV-X7
 applies to the evaluation parameters from Phase 10 (0020, closing
-[QA-19](docs/limiti-e-rischi.md#qa-19)).
-
-One item that kept the gate open is met. The changes made after cc6fceb (the threat term follows
-the piece values, with its divisions checked at load; the king-attack counters typed by their
-bounds, so that `make hot-path` finds no generic arithmetic in the evaluation; the evaluation
-rows of `make bench` in interleaved passes; `make signatures` reads its file back; new tests;
-the documents; see the [changelog](CHANGELOG.md)) had run only on the author's machine. They are
-commit b3190dc, and CI run [37215795264](https://github.com/gpicchiarelli/ScacchiForge/actions/runs/37215795264) passed `make check` on it
-on both images: 253 tests and 0 failures on each, the search signature reproduced, and 0 bytes
-printed by the three allocation tests ([QA-12](docs/limiti-e-rischi.md#qa-12)).
+[QA-19](docs/limiti-e-rischi.md#qa-19)); the incremental evaluation state has the measurement
+0017 asks for ([EXP-0002](research/exp-0002-stato-incrementale-della-valutazione.md), accepted,
+measured on a clean clone of commit dd5a2a5); and the changes made after cc6fceb are commit
+b3190dc, on which CI run
+[37215795264](https://github.com/gpicchiarelli/ScacchiForge/actions/runs/37215795264) passed
+`make check` on both images: 253 tests and 0 failures on each, the search signature
+reproduced, and 0 bytes printed by the three allocation tests
+([QA-12](docs/limiti-e-rischi.md#qa-12)).
 
 **Phase 1 — gate re-evaluated item by item on 2026-10-04.** The optimized level has its own
 move generator. Each of the five items of the gate that the [roadmap](docs/roadmap.md#fase-1)
@@ -385,9 +434,9 @@ a new rule is in the invariants, or that the documentation is up to date.
 
 | | |
 |---|---|
-| Done | Reference model: FEN, legal move generation, make/unmake, perft, Zobrist keys, checkmate and stalemate (no draw rules), the material evaluation and the classical one, the colour swap of a position, negamax, alpha-beta and iterative deepening with their principal variation as baselines, a legal-position fuzzer. Optimized level: a bitboard position with conversion, attack tables, slider attacks (magic bitboards with numbers searched from a seed, and classical rays), make/unmake with an incremental key, pseudo-legal generation, a legality filter, perft and divide; the classical evaluation, with material, piece-square tables and game phase kept incrementally; the colour swap; negamax, alpha-beta and iterative deepening at fixed depth. Tests: perft and the special-case suite on both levels, the differential test (moves, keys, evaluation, search values), the evaluation against its definition and the search properties on both levels, the first search signature, fuzzing, allocation, a checked build. Benchmark harness with the environment record, with search and evaluation rows; build, lint, link, hot-path, magic-number and signature tools. Twenty decision records, all accepted · two research records, both accepted · 35 invariants · 19 open questions, 16 open and three closed |
-| Next | Closing the [Phase 2](docs/roadmap.md#fase-2) gate: the open items above. A recorded review by the author |
-| Then | Phases 3 to 12: transposition table and PVS, quiescence and SEE, pruning and reductions, alternative searches, profiling and CPU dispatch, NNUE, SIMD backends, automated tuning, parallel search, learned search policies. Each is closed by its own gate |
+| Done | Reference model: FEN, legal move generation, make/unmake, perft, Zobrist keys, checkmate and stalemate (no draw rules), the material evaluation and the classical one, the colour swap of a position, negamax, alpha-beta and iterative deepening with their principal variation as baselines, a legal-position fuzzer. Optimized level: a bitboard position with conversion, attack tables, slider attacks (magic bitboards with numbers searched from a seed, and classical rays), make/unmake with an incremental key, pseudo-legal generation, a legality filter, perft and divide; the classical evaluation, with material, piece-square tables and game phase kept incrementally; the colour swap; negamax, alpha-beta and iterative deepening at fixed depth; a transposition table with a verification mode, the move ordering of Phase 3, PVS and NegaScout with node types, the default search of Phase 3. Tests: perft and the special-case suite on both levels, the differential test (moves, keys, evaluation, search values), the evaluation against its definition and the search properties on both levels, the transposition table against the search without it, PVS, NegaScout and the ordering against alpha-beta, the minimal tree with a perfect ordering, the search signature of two searches, fuzzing, allocation, a checked build. Benchmark harness with the environment record, with search, evaluation, Phase 3 search and lookup rows; build, lint, link, hot-path, magic-number and signature tools. Twenty-three decision records, twenty accepted and three proposed · three research records, two accepted and one proposed · 35 invariants · 19 open questions, 16 open and three closed |
+| Next | Closing the [Phase 3](docs/roadmap.md#fase-3) gate: the open items above. A recorded review by the author, and the author's decision on 0021 to 0023 |
+| Then | Phases 4 to 12: quiescence and SEE, pruning and reductions, alternative searches, profiling and CPU dispatch, NNUE, SIMD backends, automated tuning, parallel search, learned search policies. Each is closed by its own gate |
 
 Where `make check` has run, and exited 0:
 
@@ -402,7 +451,8 @@ c15291e carries the fixes made after it, and 0408743 records the author's decisi
 and 0 failures on both images, as for c15291e). cc6fceb is the first that holds Phase 2 code: on
 both images it ran 252 tests with 0 failures. b3190dc carries the changes made after cc6fceb: on
 both images it ran 253 tests with 0 failures, reproduced the search signature, and the three
-allocation tests printed 0 bytes. Nothing has run on FreeBSD, macOS Intel or ARM64 Linux. The
+allocation tests printed 0 bytes. The Phase 3 code has run on the author's machine only. Nothing
+has run on FreeBSD, macOS Intel or ARM64 Linux. The
 CI runs `make check` only: not `make perft-deep`, `make differential-deep`, `make test-checked`,
 `make hot-path` or `make bench`. It pins the runner images (`ubuntu-24.04`, `macos-26`) and
 installs the SBCL that apt and Homebrew offer there, so the version can change when the image or
@@ -436,9 +486,9 @@ are not part of `make check`:
 | `make perft-deep` | the deep perft counts of both levels |
 | `make differential-deep` | the optimized level against the reference on millions of positions |
 | `make bench` | the environment record and the measurements described under [Metrics](#metrics) |
-| `make hot-path` | SBCL's efficiency notes for the optimized hot path, a scan of the disassembly of the per-node functions of perft and of the search and of the evaluation (first tried on planted functions), its allocation, and perft CPU time by compilation policy, with the per-node functions expanded or called; measurements of one machine |
+| `make hot-path` | SBCL's efficiency notes for the optimized hot path, a scan of the disassembly of the per-node functions of perft and of the searches, of the evaluation, of the move ordering and of the transposition table's probe and store (first tried on planted functions), its allocation, and perft CPU time by compilation policy, with the per-node functions expanded or called; measurements of one machine |
 | `make magics` | searches the magic numbers of the slider tables again from their seed and rewrites `src/optimized/magic-numbers.lisp` |
-| `make signatures` | recomputes the search signature and rewrites `tests/search-signature.sexp` with its provenance header; only for a change meant to change what the search returns, never to make an `[EXACT]` change pass ([verifica.md](docs/verifica.md#regressione-di-ricerca)) |
+| `make signatures` | recomputes the search signature, of the baseline alpha-beta and of the default search of Phase 3, and rewrites `tests/search-signature.sexp` with its provenance header; only for a change meant to change what a search returns, never to make an `[EXACT]` change pass ([verifica.md](docs/verifica.md#regressione-di-ricerca)) |
 
 The environment variable `SCF_SLIDERS` (`fixed-magic`, `magic` or `ray`; `fixed-magic` when
 unset) chooses the slider attacks the optimized level is compiled with, for every target that
@@ -470,11 +520,14 @@ $ sbcl --noinform --no-userinit --load tools/load.lisp
 4865609
 ```
 
-In the same session, the classical evaluation of each level and a search of the optimized
+In the same session, the classical evaluation of each level and two searches of the optimized
 level. The score is in centipawns, from the side to move; 42 is the value the worked examples of
-[valutazione.md](docs/valutazione.md#esempi-calcolati) give for that position. The search is
-alpha-beta at depth 4: value, best move, node count and principal variation, the first entry of
-the search signature. Neither number says anything about playing strength.
+[valutazione.md](docs/valutazione.md#esempi-calcolati) give for that position. The first search
+is alpha-beta at depth 4, the second the default search of Phase 3 to depth 4 (iterative
+deepening of PVS with the move ordering and a transposition table): value, best move, node count
+and principal variation, the first entry of each part of the search signature. The node count of
+the second is the sum over its iterations. None of these numbers says anything about playing
+strength.
 
 ```
 * (scf-ref:evaluate-classical (scf-ref:parse-fen (scf-ref:standard-position-fen "kiwipete")))
@@ -486,7 +539,12 @@ the search signature. Neither number says anything about playing strength.
 * (multiple-value-bind (score move nodes pv)
       (scf-opt:bitboard-search (scf-opt:bitboard-from-reference (scf-ref:start-position)) 4)
     (list score (scf-core:move-to-string move) nodes (mapcar #'scf-core:move-to-string pv)))
-(10 "b1c3" 61792 ("b1c3" "b8c6" "g1f3" "g8f6"))
+(10 "b1c3" 61888 ("b1c3" "b8c6" "g1f3" "g8f6"))
+* (multiple-value-bind (score move nodes pv)
+      (scf-opt:bitboard-default-search (scf-opt:bitboard-from-reference (scf-ref:start-position))
+                                       4 :mode :verification)
+    (list score (scf-core:move-to-string move) nodes (mapcar #'scf-core:move-to-string pv)))
+(10 "b1c3" 4033 ("b1c3" "b8c6" "g1f3" "g8f6"))
 ```
 
 ## Repository
@@ -495,8 +553,8 @@ the search signature. Neither number says anything about playing strength.
 |---|---|
 | [`docs/`](docs/README.md) | Specification, architecture, decisions, invariants, verification, roadmap, open questions. Written in Italian. |
 | [`src/`](src) · [`tests/`](tests) | The system and its tests. |
-| [`benchmarks/`](benchmarks) | The benchmark harness: perft, the search and the evaluation, bit utilities and slider attacks. |
-| [`research/`](research/README.md) | The method, the template for experiments and the experiment records: two so far, both accepted. |
+| [`benchmarks/`](benchmarks) | The benchmark harness: perft, the search and the evaluation, the searches of Phase 3 and the transposition table, bit utilities and slider attacks. |
+| [`research/`](research/README.md) | The method, the template for experiments and the experiment records: three so far, two accepted and one proposed. |
 | [`tools/`](tools) | Build, lint, link check, perft-deep, differential-deep, bench, hot-path, the magic-number generator and the search-signature writer, in Common Lisp. |
 | [`assets/`](assets/README.md) | The design language. |
 | [`.github/`](.github) | CI, issue forms, pull request template. |

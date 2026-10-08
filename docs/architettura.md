@@ -70,8 +70,9 @@ Questa sezione descrive lo stato del repository, non la specifica.
 | Attacchi dei pezzi a lunga gittata con magic bitboard, a spostamento fisso e per casa, accanto ai raggi classici ([ADR-0016](adr/0016-attacchi-dei-pezzi-a-lunga-gittata.md)) | esistono |
 | Attacchi dei pezzi a lunga gittata con PEXT | previsti |
 | Ricerche baseline dell'engine ottimizzato: negamax, alpha-beta fail-soft e iterative deepening a profondità fissa, con valore, mossa migliore, numero di nodi e variante principale, senza allocazione per nodo; la prima firma di ricerca ([ADR-0019](adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md)) | esistono |
-| PVS, NegaScout e le altre ricerche dell'engine ottimizzato | previste |
-| Transposition table, ordinamento delle mosse | previsti |
+| PVS e NegaScout dell'engine ottimizzato, con i tipi di nodo PV, Cut e All attesi e osservati, e la ricerca di default della Fase 3; la firma di ricerca delle baseline e della ricerca di default ([ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md), Proposta) | esistono |
+| Transposition table del livello ottimizzato, con le modalità normale e di verifica ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md), Proposta); ordinamento delle mosse della Fase 3 ([ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md), Proposta) | esistono |
+| MTD(f), SSS*, DUAL*, transposition-driven search | previste |
 | Quiescenza, SEE, potature e riduzioni | previste |
 | Valutazione classica nel livello ottimizzato, con materiale, piece-square tables e fase incrementali, e lo scambio dei colori su bitboard ([valutazione](valutazione.md), [ADR-0018](adr/0018-definizione-della-valutazione-classica.md) e [ADR-0019](adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md)) | esistono |
 | NNUE | prevista |
@@ -171,7 +172,7 @@ funzione.
 | Chiave Zobrist | l'intero a 64 bit | stesse tavole, stessa politica, calcolo indipendente |
 | Valutazione | il punteggio intero | definito in [valutazione](valutazione.md); per localizzare una differenza, anche la scomposizione per termine e colore |
 | Feature e accumulatore NNUE | l'insieme delle feature attive e il vettore dell'accumulatore | |
-| Ricerca | il valore a profondità fissa; la mossa migliore può differire tra mosse di valore uguale | solo dove la classe lo garantisce: senza potature, e con la TT in modalità di verifica (TT-1…TT-4 in [classificazione](classificazione.md#ipotesi-della-transposition-table)). Oggi si confrontano anche i nodi di negamax, che non dipendono dall'ordine delle mosse; quelli di alpha-beta no ([ADR-0019](adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md)) |
+| Ricerca | il valore a profondità fissa; la mossa migliore può differire tra mosse di valore uguale | solo dove la classe lo garantisce: senza potature, e con la TT in modalità di verifica (TT-1…TT-4 in [classificazione](classificazione.md#ipotesi-della-transposition-table)). Oggi si confrontano anche i nodi di negamax, che non dipendono dall'ordine delle mosse; quelli di alpha-beta no ([ADR-0019](adr/0019-valutazione-e-ricerca-del-livello-ottimizzato.md)). Della ricerca di default della Fase 3, con la TT in modalità di verifica, si confrontano il valore e la variante, rigiocata dal riferimento ([ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md)) |
 
 ## Rappresentazione e generazione delle mosse
 
@@ -216,12 +217,15 @@ Oggi il livello ottimizzato (`src/optimized/`) è fatto così; le scelte sono de
 | `legal.lisp` | il filtro di legalità con maschere di scacco e di inchiodatura; la generazione legale |
 | `perft.lisp` | perft e divide: `perft-node` espande inline generazione pseudo-legale, filtro di legalità, make e unmake ([ADR-0014](adr/0014-policy-di-compilazione-del-livello-ottimizzato.md), punto 6); `bitboard-perft-with-buffer` usa un buffer ricevuto e non alloca; `bitboard-perft` e `bitboard-perft-divide`, che allocano il proprio buffer o una lista, stanno fuori dal hot path, con la policy degli altri file del livello |
 | `evaluation.lisp` | la valutazione classica su bitboard: `bitboard-evaluate`, con materiale, piece-square tables e fase dallo stato incrementale e gli altri termini calcolati dagli insiemi d'attacco a ogni chiamata, e `bitboard-evaluate-from-scratch`, nel hot path e senza allocazione; fuori dal hot path la scomposizione per termine e colore `bitboard-classical-breakdown`, nella forma di quella del riferimento |
-| `search.lisp` | negamax, alpha-beta fail-soft e iterative deepening con le convenzioni della ricerca del riferimento; un contesto preallocato con il buffer delle mosse, la tavola triangolare delle varianti principali e il contatore dei nodi; le funzioni di nodo nel hot path; le funzioni che restituiscono la variante come lista e le iterazioni fuori |
+| `transposition.lisp` | la transposition table ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md), Proposta): chiavi e parole di dati in due vettori di `(unsigned-byte 64)`, il controllo indipendente della modalità di verifica in un terzo; sonda e inserimento nel hot path, con le tre politiche di sostituzione; fuori dal hot path il costruttore, le statistiche, la pulizia, la generazione |
+| `ordering.lisp` | l'ordinamento delle mosse della Fase 3 ([ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md), Proposta): la chiave di una mossa e l'ordinamento stabile per inserimento nel buffer, nel hot path; `bitboard-ordered-moves`, che restituisce una lista per i test, fuori |
+| `search.lisp` | negamax, alpha-beta fail-soft e iterative deepening con le convenzioni della ricerca del riferimento; il nodo della Fase 3 (`search-node`), con alpha-beta, PVS o NegaScout, l'ordinamento, la TT e il conteggio dei tipi di nodo ([ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md), Proposta); un contesto preallocato con il buffer delle mosse e le sue chiavi d'ordine, la tavola triangolare delle varianti principali, la variante dell'iterazione precedente, il contatore dei nodi e gli altri contatori; le funzioni di nodo nel hot path; le funzioni che restituiscono la variante come lista, le statistiche, le iterazioni e la ricerca di default fuori |
 | `mirror.lisp` | lo scambio dei colori di una posizione bitboard (`bitboard-mirror`), fuori dal hot path |
-| `policy.lisp` | la policy di compilazione dei file del hot path e la build controllata; l'elenco dei file del hot path (`*hot-path-files*`, che comprende `evaluation` e `search`); l'implementazione degli attacchi dei pezzi a lunga gittata, letta da `SCF_SLIDERS`; se make e unmake tengano lo stato incrementale della valutazione, letto da `SCF_EVAL_STATE` (le macro `when-incremental-evaluation` e `if-incremental-evaluation`, [EXP-0002](../research/exp-0002-stato-incrementale-della-valutazione.md)); se `perft-node` espande inline le funzioni di nodo (`*inline-node-functions*`); `check-compiled-choice`, con cui ogni file del hot path, quando si carica, si ferma con un errore se è stato compilato con una policy o un'implementazione diversa da quella che l'immagine chiede |
+| `policy.lisp` | la policy di compilazione dei file del hot path e la build controllata; l'elenco dei file del hot path (`*hot-path-files*`, che comprende `evaluation`, `transposition`, `ordering` e `search`); l'implementazione degli attacchi dei pezzi a lunga gittata, letta da `SCF_SLIDERS`; se make e unmake tengano lo stato incrementale della valutazione, letto da `SCF_EVAL_STATE` (le macro `when-incremental-evaluation` e `if-incremental-evaluation`, [EXP-0002](../research/exp-0002-stato-incrementale-della-valutazione.md)); se `perft-node` espande inline le funzioni di nodo (`*inline-node-functions*`); `check-compiled-choice`, con cui ogni file del hot path, quando si carica, si ferma con un errore se è stato compilato con una policy o un'implementazione diversa da quella che l'immagine chiede |
 
-Le quattro fasi della specifica sono funzioni separate, tranne l'ordinamento, che non esiste
-ancora: generazione pseudo-legale, filtro di legalità, esecuzione (make e unmake). `Move` è il
+Le quattro fasi della specifica sono funzioni separate: generazione pseudo-legale, filtro di
+legalità, ordinamento (`order-node-moves`, dalla Fase 3, chiamato dalle sole ricerche della Fase
+3), esecuzione (make e unmake). `Move` è il
 valore packed del `core`. Il perft del livello ottimizzato, dopo un riscaldamento, alloca al più
 1 MiB su più di un milione di mosse, cioè meno di un byte per mossa, e lo controlla un test
 ([verifica](verifica.md#test-differenziale),
@@ -236,9 +240,14 @@ visitano più di un milione di nodi, dopo un riscaldamento
 arm64, stampano 0 byte, e 0 anche nella CI sui commit cc6fceb e b3190dc, su x86-64 con SBCL
 2.2.9 e su arm64 con SBCL 2.6.8 (run 37198250566 e 37215795264,
 [QA-12](limiti-e-rischi.md#qa-12)). Le funzioni di nodo della ricerca chiamano generazione,
-make, unmake e valutazione: l'espansione inline del punto 6 di
+make, unmake e valutazione, e quella della Fase 3 anche ordinamento, sonda e inserimento nella
+TT: l'espansione inline del punto 6 di
 [ADR-0014](adr/0014-policy-di-compilazione-del-livello-ottimizzato.md) resta del solo
-`perft-node`.
+`perft-node`. La ricerca della Fase 3 ha il suo test di allocazione: ricerche di PVS e NegaScout
+ordinate, con una TT preallocata in ciascuna modalità, che visitano più di un milione di nodi
+dopo un riscaldamento, al più 1 MiB; su SBCL 2.6.9, macOS arm64, stampa 0 byte su 1791332 nodi
+(`phase-3-search-allocates-nothing-after-warm-up`,
+[verifica](verifica.md#ricerca-della-fase-3)). Non è stato eseguito altrove.
 
 ## Ricerca
 
@@ -257,6 +266,18 @@ Dalla specifica.
 > dalla posizione della mossa; il tipo osservato si conosce dopo. Si registrano entrambi, così si
 > misura quanto spesso la previsione sbaglia. Una tecnica che dipende dal tipo di nodo lo dichiara
 > nella sua classificazione. In quale fase entra: [roadmap](roadmap.md#senza-fase).
+
+Oggi le ricerche della Fase 3 del livello ottimizzato lo fanno
+([ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md), Proposta). Il tipo atteso segue la regola
+di Knuth e Moore: la radice è PV; il primo figlio di un nodo PV è PV, gli altri Cut; ogni figlio
+di un nodo Cut è All; ogni figlio di un nodo All è Cut; una ri-ricerca di PVS o NegaScout è PV.
+Il tipo osservato viene dal risultato contro la finestra del nodo: Cut a beta o sopra, All ad
+alpha o sotto, PV strettamente dentro. La ricerca conta i nove accoppiamenti, e le statistiche
+della ricerca e le righe di `make bench` li restituiscono. Nessuna finestra, nessun ordinamento e
+nessun taglio dipende ancora dal tipo di nodo. Con un ordinamento perfetto ogni nodo ha il tipo
+atteso, e la ricerca visita l'albero minimo: lo controlla un test, su undici posizioni
+([verifica](verifica.md#ricerca-della-fase-3)). Le baseline (negamax e alpha-beta della Fase 2)
+non registrano i tipi.
 
 ## Deduplicazione
 
@@ -277,6 +298,12 @@ La colonna «Classe tipica» è una proposta.
 
 **Regola.** Non si fa una lookup o un'operazione di cache se il suo costo supera quello del
 calcolo. Si misurano sempre hit rate e costo della lookup.
+
+Per la TT del livello ottimizzato `make bench` stampa la hit rate, la quota di sonde con una
+profondità usabile e i tagli di ogni configurazione della ricerca della Fase 3, e il costo di un
+inserimento, di una sonda che trova e di una che non trova, per diverse dimensioni e politiche
+([misure](misure.md#due-livelli-di-benchmark)). Il costo del calcolo che una sonda sostituisce è
+quello di un sottoalbero, che le righe della ricerca danno insieme, con e senza TT.
 
 > **Proposta** — Un criterio per applicarla. Sia `h` la frazione di sonde che trovano il
 > risultato, `C_calc` il costo del calcolo, `C_lookup` quello della sonda, `C_store` quello

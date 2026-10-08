@@ -47,7 +47,7 @@ La specifica chiede anche tre misure mirate:
 - Si misura il costo della lookup contro quello del calcolo, come chiede la regola di
   [architettura](architettura.md#deduplicazione).
 
-Oggi `make bench` misura soprattutto al primo livello, quello dei microbenchmark, e ha due
+Oggi `make bench` misura soprattutto al primo livello, quello dei microbenchmark, e ha tre
 gruppi di righe del secondo. I suoi kernel misurano le utilità sui bit e gli attacchi dei pezzi a
 lunga gittata nelle tre implementazioni del livello ottimizzato: la lookup nelle tavole magic, nelle due disposizioni, contro il calcolo
 per raggi che sostituisce, sugli stessi ingressi con seme dichiarato e con la policy del hot
@@ -61,9 +61,12 @@ né ordinamento, e il costo di una chiamata della valutazione classica nei due l
 dello stato della valutazione ([EXP-0002](../research/exp-0002-stato-incrementale-della-valutazione.md)) ripetono la ricerca e il
 perft del livello ottimizzato con le due varianti, `incremental` e `recompute`, compilate una
 volta ciascuna in `build/bench/state-…/` e misurate in passate A B B A, e stampano l'esito della
-regola di decisione della sezione 1 del record su quell'esecuzione. Le altre
-voci del benchmark di engine (profondità e tempo, hit rate della TT, cutoff rate, branching
-factor, QNodes, RSS, forza) non hanno righe.
+regola di decisione della sezione 1 del record su quell'esecuzione. Il terzo gruppo sono le
+righe delle ricerche della Fase 3: nodi e tempo CPU a profondità fissa con e senza ordinamento e
+TT, l'efficienza dell'ordinamento, il cutoff rate, la hit rate della TT per diverse dimensioni,
+politiche e modalità, l'accordo fra tipo di nodo atteso e osservato; accanto, al primo livello,
+il costo della lookup della TT. Le altre voci del benchmark di engine (profondità a tempo fisso,
+branching factor, QNodes, RSS, forza) non hanno righe.
 
 Il metodo di `make bench` ([`benchmarks/`](../benchmarks/), [`tools/bench.lisp`](../tools/bench.lisp)):
 
@@ -110,6 +113,33 @@ Il metodo di `make bench` ([`benchmarks/`](../benchmarks/), [`tools/bench.lisp`]
   [architettura](architettura.md#deduplicazione) chiede per il calcolo incrementale, con la
   regola di decisione che [ADR-0017](adr/0017-percorso-di-ricerca-per-le-alternative-exact.md)
   chiede per un'alternativa `[EXACT]`: [EXP-0002](../research/exp-0002-stato-incrementale-della-valutazione.md).
+- **Ricerche della Fase 3** ([`benchmarks/search-variants-bench.lisp`](../benchmarks/search-variants-bench.lisp)).
+  Iterative deepening alla profondità della firma, su tre posizioni della firma, con undici
+  configurazioni: alpha-beta di base; alpha-beta, PVS e NegaScout con l'ordinamento della Fase 3
+  ([ADR-0023](adr/0023-ordinamento-delle-mosse-della-fase-3.md)); PVS ordinata con TT di 2^10,
+  2^16 e 2^20 slot a due slot per bucket, di 2^16 con le politiche `:depth-preferred` e `:always`,
+  in modalità normale, e di 2^16 in modalità di verifica (la ricerca di default come la firma la
+  registra); PVS con TT senza ordinamento
+  ([ADR-0021](adr/0021-transposition-table-del-livello-ottimizzato.md),
+  [ADR-0022](adr/0022-pvs-negascout-e-tipi-di-nodo.md)). Ogni chiamata parte da una tabella
+  pulita, e la pulizia non è nel tempo. Ogni chiamata è controllata: il valore di ogni
+  configurazione, tranne quelle con la TT in modalità normale, deve essere quello registrato
+  nella firma, il numero di nodi quello della prima chiamata della riga, e quello della ricerca
+  di default quello della firma. Una TT in modalità normale può tagliare su una entry più profonda: la riga dice se
+  il valore è quello di alpha-beta. Le configurazioni si eseguono in due passate, in ordine e al
+  contrario, con campioni di almeno 0,2 s di CPU; la tabella dà i nodi, il tempo CPU per ricerca
+  (mediana, minimo e massimo sulle due passate e la mediana di ciascuna) e i nodi per secondo di
+  CPU; una seconda tabella dà, da una chiamata non misurata, la quota dei tagli beta fatti dalla
+  prima mossa (l'efficienza dell'ordinamento), i tagli beta sui nodi sotto la radice che hanno
+  cercato una mossa (il cutoff rate), le ri-ricerche, la quota dei nodi del tipo atteso, la hit
+  rate (riscontri sulle sonde), la quota di sonde con una profondità usabile e i tagli della TT.
+  Non si assume che più memoria renda di più: le righe delle tre dimensioni lo misurano.
+- **Lookup della TT** (stesso file). Su 4096 posizioni legali casuali con seme dichiarato, per
+  tabelle di più dimensioni e politiche e una in modalità di verifica: il costo di un
+  inserimento, di una sonda delle posizioni inserite e di una sonda di altre posizioni casuali,
+  in nanosecondi per operazione dal tempo CPU, con quante posizioni ogni sonda trova; in due
+  passate, in ordine e al contrario. È il costo della lookup che la regola di
+  [architettura](architettura.md#deduplicazione) chiede di confrontare con quello del calcolo.
 - **Carico e tempo reale.** Il carico medio si stampa all'avvio, nel registro dell'ambiente, e
   alla fine, nell'ultima riga; la penultima dà il tempo CPU e il tempo reale dell'intera
   esecuzione. Il tempo reale si stampa anche accanto alle righe di perft.
@@ -118,10 +148,11 @@ Quanto una deriva o un carico cambino una conclusione, l'output non lo dice: lo 
 con cui lo si legge, dichiarata prima dei dati (per esempio la sezione 1 di
 [EXP-0001](../research/exp-0001-attacchi-dei-pezzi-a-lunga-gittata.md)).
 
-Oggi del benchmark di engine esistono solo le due voci dette sopra, NPS a profondità fissa e
-costo della valutazione, per le ricerche baseline della [Fase 2](roadmap.md#fase-2), che non
-hanno TT, ordinamento né quiescenza. Nessuna delle due dice qualcosa sulla forza: non è stata
-giocata nessuna partita. Le foglie di perft per secondo di CPU non sono l'NPS di una ricerca
+Oggi del benchmark di engine esistono le voci dette sopra: NPS a profondità fissa e costo della
+valutazione, per le ricerche baseline della [Fase 2](roadmap.md#fase-2); nodi e tempo a profondità
+fissa, efficienza dell'ordinamento, cutoff rate e hit rate della TT per le ricerche della
+[Fase 3](roadmap.md#fase-3), che non hanno quiescenza. Nessuna dice qualcosa sulla forza: non è
+stata giocata nessuna partita. Le foglie di perft per secondo di CPU non sono l'NPS di una ricerca
 ([metriche](#metriche-da-definire-una-volta)).
 
 > **Deciso (QA-17 → [ADR-0017](adr/0017-percorso-di-ricerca-per-le-alternative-exact.md))** —
@@ -326,8 +357,8 @@ regressioni e miglioramenti si registrino.
 | Nodi | nodi di ricerca e nodi di quiescenza (QNodes) riportati separatamente |
 | NPS | nodi diviso tempo CPU. Oggi `make bench` riporta le foglie di perft per secondo di CPU, con il tempo reale accanto: foglie di perft, non nodi di ricerca; e, nelle righe della ricerca, i nodi di ricerca di alpha-beta a profondità fissa (la radice, i nodi interni e le foglie, ciascuno con una generazione delle mosse o una valutazione; non ci sono QNodes) diviso la mediana del tempo CPU di una ricerca |
 | Branching factor effettivo | una sola definizione, dichiarata |
-| Hit rate della TT | sonde con chiave riscontrata diviso sonde; e le sole sonde con profondità sufficiente |
-| Cutoff rate | tagli beta diviso nodi in cui si poteva tagliare |
-| Efficienza dell'ordinamento | frazione dei tagli beta ottenuta alla prima mossa; la specifica chiede di misurarla a parte |
+| Hit rate della TT | sonde con chiave riscontrata diviso sonde; e le sole sonde con profondità sufficiente. Oggi `make bench` stampa le due: i riscontri (chiave intera uguale e, in modalità di verifica, controllo uguale) e i riscontri con una profondità usabile, divisi per le sonde |
+| Cutoff rate | tagli beta diviso nodi in cui si poteva tagliare. Oggi: i nodi in cui una mossa ha raggiunto beta, diviso i nodi sotto la radice che hanno cercato almeno una mossa (la radice, a finestra piena, non taglia mai) |
+| Efficienza dell'ordinamento | frazione dei tagli beta ottenuta alla prima mossa; la specifica chiede di misurarla a parte. Oggi `make bench` la stampa per ogni configurazione delle ricerche della Fase 3 |
 | Allocazione | byte allocati per ricerca |
 | Forza | la lettura scelta di Elo per CPU-secondo ([QA-08](limiti-e-rischi.md#qa-08)) |

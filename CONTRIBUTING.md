@@ -47,7 +47,8 @@ target usano make (è stato usato solo GNU make). `make help` elenca tutti i tar
 di posizioni (`make differential-deep`), i test con il hot path a `safety 3`
 (`make test-checked`), i benchmark (`make bench`), l'ispezione del hot path (`make hot-path`), la
 ricerca dei numeri magici (`make magics`) e il ricalcolo della firma di ricerca
-(`make signatures`, che riscrive `tests/search-signature.sexp`) sono fuori da `make check`. La
+(`make signatures`, che riscrive `tests/search-signature.sexp`, con la firma di alpha-beta e
+quella della ricerca di default della Fase 3) sono fuori da `make check`. La
 variabile d'ambiente
 `SCF_SLIDERS` (`fixed-magic`, `magic`, `ray`) sceglie gli attacchi dei pezzi a lunga gittata con
 cui si compila il livello ottimizzato, per ogni target che carica il sistema
@@ -71,8 +72,9 @@ In più, secondo ciò che si cambia:
 | il hot path del livello ottimizzato | `make test-checked` e `make hot-path` ([ADR-0014](docs/adr/0014-policy-di-compilazione-del-livello-ottimizzato.md)) |
 | gli attacchi dei pezzi a lunga gittata, il seme o la ricerca dei numeri magici | `make test` con `SCF_SLIDERS` impostata a ciascuna implementazione; `make magics` se cambiano il seme, la ricerca o le disposizioni delle tavole (lo strumento cerca senza costruire prima le tavole dai numeri nel file: [ADR-0016](docs/adr/0016-attacchi-dei-pezzi-a-lunga-gittata.md#conseguenze)); `make bench` per le misure, e il record [EXP-0001](research/exp-0001-attacchi-dei-pezzi-a-lunga-gittata.md) |
 | lo stato incrementale della valutazione, make e unmake | `make test` e `SCF_EVAL_STATE=recompute make test`; `make differential-deep` |
+| la transposition table, l'ordinamento delle mosse, PVS, NegaScout o la ricerca di default della Fase 3 | `make test` (suite `optimized-tt`, `optimized-pvs`, `differential`), `make differential-deep`, `make test-checked` e `make hot-path`; con la TT in modalità di verifica il valore deve restare quello della ricerca senza TT ([verifica](docs/verifica.md#ricerca-della-fase-3)); `make signatures` se cambiano i nodi della ricerca di default, e il record [EXP-0003](research/exp-0003-ricerca-della-fase-3.md) |
 | una potatura, una riduzione, un'estensione, la valutazione | un record di ricerca e un self-play con test statistico |
-| un'uscita della ricerca: un peso o una formula della valutazione, l'ordine delle mosse, la profondità o le posizioni della firma | `make signatures` nello stesso commit, che riscrive `tests/search-signature.sexp`; la differenza del file si legge prima del commit, e il messaggio dice quali componenti cambiano e perché. Non si esegue per far passare una modifica `[EXACT]`: se la firma cambia, la modifica non è `[EXACT]` o ha un errore ([verifica](docs/verifica.md#regressione-di-ricerca)) |
+| un'uscita della ricerca: un peso o una formula della valutazione, l'ordine delle mosse, l'ordinamento o la TT della ricerca di default, la profondità o le posizioni della firma | `make signatures` nello stesso commit, che riscrive `tests/search-signature.sexp`; la differenza del file si legge prima del commit, e il messaggio dice quali componenti cambiano e perché. Non si esegue per far passare una modifica `[EXACT]`: se la firma cambia, la modifica non è `[EXACT]` o ha un errore ([verifica](docs/verifica.md#regressione-di-ricerca)) |
 | una dichiarazione di velocità | microbenchmark e benchmark di engine contro la baseline, con il registro dell'ambiente |
 | un'alternativa `[EXACT]` con le stesse uscite dell'implementazione esistente o del riferimento | l'equivalenza, esaustiva o differenziale, come test in `make check` o in un target profondo documentato, e il perft; il microbenchmark e `make bench` con una regola di decisione, eseguito su una revisione committata e pulita; niente self-play né validazione statistica ([ADR-0017](docs/adr/0017-percorso-di-ricerca-per-le-alternative-exact.md)) |
 | la documentazione | `make links` |
