@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="630" height="178" viewBox="0 0 630 178" fill="none" role="img" aria-labelledby="t" aria-describedby="d" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+  <title id="t">The gates every change must pass</title>
+  <desc id="d">Six capsules in two rows, joined in a U. Top left, outlined in amber, the optimized engine: the candidate under test, the only part that changes. It goes down into the first gate and must pass all four, in order: perft, move counts equal to the published ones; differential, results equal to those of the reference engine on millions of random positions; benchmark, cost measured against a baseline; and, back up at the top right, self-play, strength measured against the previous version. In the middle of the top row the reference engine, simple and readable, is the oracle: it feeds only the differential gate below it. The drawing is the process every change must pass, not a report of results.</desc>
+  <style>@media (max-width:560px){.n{font-size:17.5px;transform:translateY(2.03px)}.l{font-size:14px;letter-spacing:2px;transform:translateY(0.81px)}.o{stroke-width:2.5px;transform:translateY(0.81px)}.w{stroke-width:2px;transform:translateY(0.81px)}}</style>
+  <path class="w" d="M101 83V113M97 107.5L101 113L105 107.5M315 83V113M311 107.5L315 113L319 107.5M193 139H223M217.5 135L223 139L217.5 143M407 139H437M431.5 135L437 139L431.5 143M529 113V83M533 88.5L529 83L525 88.5" stroke="#6e6e73" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <g class="o" stroke-width="1.25">
+    <rect x="16" y="38" width="170" height="38" rx="19" stroke="#c9892f"/>
+    <rect x="230" y="38" width="170" height="38" rx="19" stroke="#d2d2d7"/>
+    <rect x="444" y="38" width="170" height="38" rx="19" stroke="#d2d2d7"/>
+    <rect x="16" y="120" width="170" height="38" rx="19" stroke="#d2d2d7"/>
+    <rect x="230" y="120" width="170" height="38" rx="19" stroke="#d2d2d7"/>
+    <rect x="444" y="120" width="170" height="38" rx="19" stroke="#d2d2d7"/>
+  </g>
+  <g class="n" text-anchor="middle" font-size="14" font-weight="500" fill="#1d1d1f">
+    <text x="101" y="61.9">optimized</text>
+    <text x="315" y="61.9">reference</text>
+    <text x="529" y="61.9">self-play</text>
+    <text x="101" y="143.9">perft</text>
+    <text x="315" y="143.9">differential</text>
+    <text x="529" y="143.9">benchmark</text>
+  </g>
+  <g class="l" text-anchor="middle" font-size="10.5" font-weight="600" letter-spacing="1.5" fill="#6e6e73">
+    <text x="101" y="27">UNDER TES<tspan letter-spacing="0">T</tspan></text>
+    <text x="315" y="27">ORACL<tspan letter-spacing="0">E</tspan></text>
+  </g>
+</svg>

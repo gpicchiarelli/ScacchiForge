@@ -1,0 +1,14 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.fasl binary
+*.core binary
+
+*.lisp linguist-language=Common-Lisp
+*.asd linguist-language=Common-Lisp
+
+docs/** linguist-documentation

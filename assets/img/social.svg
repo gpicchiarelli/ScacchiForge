@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="t" aria-describedby="d" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+  <title id="t">ScacchiForge</title>
+  <desc id="d">The ScacchiForge mark, a stem that forks into two moves with the principal variation in amber, above the name and the line: a chess engine that decides by removing work, and never mistakes a heuristic for a theorem.</desc>
+  <rect width="1280" height="640" fill="#1d1d1f"/>
+  <g transform="translate(544 102) scale(3)" fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 7V27L11 55M32 27L34 29.667" stroke="#f5f5f7"/>
+    <path d="M32 31.167L36 28.167L55 53.5A2.5 2.5 0 0 1 51 56.5Z" fill="#e9a84c"/>
+  </g>
+  <text x="640" y="408" text-anchor="middle" font-size="76" font-weight="500" letter-spacing="-2" fill="#f5f5f7">ScacchiForge</text>
+  <g text-anchor="middle" font-size="27" font-weight="300" fill="#a1a1a6">
+    <text x="640" y="470">A chess engine that decides by removing work,</text>
+    <text x="640" y="508">and never mistakes a heuristic for a theorem.</text>
+  </g>
+</svg>

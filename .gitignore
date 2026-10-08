@@ -1,0 +1,23 @@
+# Compiled files: tools/load.lisp sends them to build/fasl/
+build/
+
+# Common local SBCL output: a fasl compiled next to its source, a saved core
+*.fasl
+*.core
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.#*
+\#*#
+
+# Local tool settings
+.claude/settings.local.json

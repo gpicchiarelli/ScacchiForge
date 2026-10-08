@@ -1,0 +1,73 @@
+name: Performance regression
+description: Something got slower, or a figure in the repository does not reproduce.
+title: "perf: "
+labels:
+  - performance
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A performance figure is a measurement of one machine. Give the command
+        that produces it, so anyone can run it and compare. A number without a
+        command is not a report.
+  - type: dropdown
+    id: metric
+    attributes:
+      label: Metric
+      description: Which quantity changed. The first six are the project's metric priorities in order, Elo per CPU-second first and NPS last (ADR-0006). The next two are secondary objectives of the specification.
+      options:
+        - Elo per CPU-second
+        - Strength at fixed time
+        - Nodes per solved tactical position
+        - CPU-ms per decision
+        - Depth at fixed time
+        - NPS (nodes per second)
+        - Nodes per decision
+        - CPU-ms per solved position
+        - Memory
+        - Other (explain below)
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command that produces the figures, as you ran it. Prefer a command committed in the repository.
+      placeholder: make bench
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit hash, `sbcl --version`, operating system, CPU model and core count, power mode, and anything else running on the machine.
+    validations:
+      required: true
+  - type: textarea
+    id: before
+    attributes:
+      label: Before
+      description: The commit and the output of the command before the change.
+    validations:
+      required: true
+  - type: textarea
+    id: after
+    attributes:
+      label: After
+      description: The commit and the output of the command after the change.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      description: How many runs, how much they differ from one another, and whether a second machine or a second session confirms the difference.
+    validations:
+      required: true
+  - type: textarea
+    id: suspect
+    attributes:
+      label: Suspected cause
+      description: A commit, a change or a hypothesis, if you have one. Say which it is.
+    validations:
+      required: false

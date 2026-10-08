@@ -1,0 +1,105 @@
+name: Correctness bug
+description: The engine gives a wrong answer - an illegal or missing move, a wrong perft count, a wrong result.
+title: "bug: "
+labels:
+  - correctness
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when a position gives a wrong answer.
+
+        A crash or hang on hostile input is a security report: follow
+        [SECURITY.md](https://github.com/gpicchiarelli/ScacchiForge/blob/main/SECURITY.md),
+        not this form. A slowdown goes to the performance form.
+  - type: input
+    id: fen
+    attributes:
+      label: Position (FEN)
+      description: The smallest position that shows the problem. If the position depends on history (repetition, fifty-move counter), give the move list in the reproduction field.
+      placeholder: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: The exact command or Lisp form that produces the wrong answer, run from the repository root. Paste it so it can be run as it is.
+      placeholder: |
+        sbcl --noinform --no-userinit --non-interactive --load tools/load.lisp \
+          --eval '(scf-tools:load-strict "scacchiforge")' \
+          --eval '(print (scf-ref:perft (scf-ref:parse-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") 2))'
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What the correct answer is, and how you know (rules of chess, another engine, a published perft table).
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: What the engine did. Paste the exact output.
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Layer
+      description: Where you saw the problem.
+      options:
+        - Reference engine (the oracle)
+        - Optimized engine
+        - Research layer
+        - Tooling or tests
+        - I do not know
+    validations:
+      required: true
+  - type: dropdown
+    id: reference_agrees
+    attributes:
+      label: Does the reference engine agree with the expected answer?
+      description: The reference engine is the oracle. If it gives the expected answer and the optimized engine does not, the defect is in the optimized layer.
+      options:
+        - Yes, the reference gives the expected answer
+        - No, the reference gives the same wrong answer
+        - I did not run the reference engine
+        - Not applicable
+    validations:
+      required: true
+  - type: dropdown
+    id: perft_impact
+    attributes:
+      label: Perft impact
+      description: Whether a perft count on this position, or on a position it reaches, is wrong.
+      options:
+        - A perft count is wrong
+        - Perft counts are unchanged
+        - I did not check
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: perft_detail
+    attributes:
+      label: Perft evidence
+      description: If a count is wrong, give the depth, the expected count, the actual count and, if you have it, the divide output at the first depth that differs.
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit hash, the output of `sbcl --version`, operating system and CPU, and whether `make check` passes on your machine.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Before you submit
+      options:
+        - label: This is not a security vulnerability.
+          required: true

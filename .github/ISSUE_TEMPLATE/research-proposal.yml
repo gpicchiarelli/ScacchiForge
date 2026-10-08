@@ -1,0 +1,70 @@
+name: Research proposal
+description: Propose a search technique, an evaluation method or an optimization to be tested.
+title: "research: "
+labels:
+  - research
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A proposal is not a result. State the hypothesis, say how it will be
+        tested, and say what would make you drop it. Do not quote a performance
+        number unless a committed command produces it.
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: What do you expect to change, and in which metric?
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: Why you expect it to hold. A proof sketch, a bound, a published result or an observation. Say which it is.
+    validations:
+      required: true
+  - type: dropdown
+    id: classification
+    attributes:
+      label: Proposed classification
+      description: A proposal, not a claim. Choose every tag you can defend. THEOREM and EXACT need a proof or an exhaustive check, so give it below. If you are unsure, choose the weaker tag; the maintainers confirm or change it in review.
+      multiple: true
+      options:
+        - "[THEOREM] provable correctness"
+        - "[EXACT] exact algorithm, no loss of correctness"
+        - "[BOUNDED] produces mathematically interpretable bounds"
+        - "[PROBABILISTIC] practical correctness from explicit probabilistic properties"
+        - "[HEURISTIC] heuristic, no general guarantee"
+        - "[EMPIRICAL] validated experimentally"
+        - "[LEARNED] parameters or functions obtained by training"
+    validations:
+      required: true
+  - type: textarea
+    id: classification_basis
+    attributes:
+      label: Basis for the classification
+      description: The proof, the bound, the probabilistic argument, the experiment or the training procedure behind each tag you chose.
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Plan
+      description: How it is implemented and measured. Include what the reference engine does for the same case, the differential test, and the command that measures it.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What result accepts the technique and what result rejects it. Decide before measuring.
+    validations:
+      required: true
+  - type: textarea
+    id: prior_work
+    attributes:
+      label: Prior work
+      description: Papers, discussions or earlier implementations, as links. Do not paste code from Stockfish, from code derived from it, or from proprietary engines.
+    validations:
+      required: false
